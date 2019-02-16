@@ -2,6 +2,7 @@ package com.michaelRunzler.TPG5.Engine;
 
 import com.michaelRunzler.TPG5.Sketch.SketchMain;
 import com.michaelRunzler.TPG5.Util.AppletAccessor;
+import com.michaelRunzler.TPG5.Util.Renderable;
 import core.CoreUtil.AUNIL.XLoggerInterpreter;
 import processing.core.PApplet;
 import processing.core.PVector;
@@ -11,7 +12,7 @@ import processing.core.PVector;
  * Contains coordinate/bounds data, color information, and a reverse reference
  * to the main sketch object.
  */
-public abstract class UXElement implements AppletAccessor
+public abstract class UXElement implements AppletAccessor, Renderable
 {
     protected PApplet parent; // Parent sketch reference
     protected int BG; // Background color of this element

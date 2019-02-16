@@ -3,20 +3,82 @@ package com.michaelRunzler.TPG5.Util;
 import processing.core.PApplet;
 import processing.core.PImage;
 
+/**
+ * Contains render pipeline data to be forwarded to the active applet object, packaged
+ * in a dynamic object format.
+ */
 public class RenderObject
 {
+    // The maximum number of arguments to any render method
     private static final int MAX_ARG_LENGTH = 8;
 
+    /**
+     * Determines the type of object to render.
+     */
     public enum RenderType{
-        POINT, LINE, RECT, ELLIPSE, TRI, QUAD, IMAGE
+        /**
+         * @see PApplet#point(float, float)
+         */
+        POINT,
+        /**
+         * @see PApplet#line(float, float, float, float)
+         */
+        LINE,
+        /**
+         * @see PApplet#rect(float, float, float, float, float)
+         */
+        RECT,
+        /**
+         * @see PApplet#ellipse(float, float, float, float)
+         */
+        ELLIPSE,
+        /**
+         * @see PApplet#triangle(float, float, float, float, float, float)
+         */
+        TRI,
+        /**
+         * @see PApplet#quad(float, float, float, float, float, float, float, float)
+         */
+        QUAD,
+        /**
+         * @see PApplet#image(PImage, float, float)
+         */
+        IMAGE,
+        /**
+         * @see PApplet#text(String, float, float, float, float)
+         */
+        TEXT
     }
 
     // Instance variables
     public RenderType t;
-    public int[] color;
-    public int mode;
+    public int[] color; // [0] is stroke color, [1] is fill color
+    public int mode; // shape render mode
     public float[] coords;
     public PImage img;
+    public String text;
+    public int[] align; // text alignment, [0] is horizontal, [1] is vertical
+
+    /**
+     * Constructs an instance of this object in {@link RenderType#TEXT} mode.
+     * @param text the text to draw
+     * @param mode the text alignment constant from
+     * @param alignX horizontal alignment constant from {@link PApplet}. Set to -1 to not use alignment in this axis.
+     * @param alignY vertical alignment constant from {@link PApplet}. Set to -1 to not use alignment in this axis.
+     * @param fColor color for the drawn text
+     * @param x X-coordinate for the text box. Where this actually is relative to the image
+     *          is dependent on the render mode.
+     * @param y Y-coordinate for the text box. Where this actually is relative to the image
+     *          is dependent on the render mode.
+     * @param w limiting factor for width of the text box. Set this to -1 to not set a limit.
+     * @param h limiting factor for height of the text box. Set this to -1 to not set a limit.
+     */
+    public RenderObject(String text, int mode, int alignX, int alignY,  int fColor, float x, float y, float w, float h){
+        this(RenderType.TEXT, mode, fColor, -1, x, y, w, h);
+        this.text = text;
+        this.align[0] = alignX;
+        this.align[1] = alignY;
+    }
 
     /**
      * Constructs an instance of this object in {@link RenderType#IMAGE} mode.
@@ -24,7 +86,7 @@ public class RenderObject
      * @param mode the image draw mode constant from {@link PApplet}.
      * @param fColor the fill color of the drawn object
      * @param pColor the perimeter (or 'stroke') color of the drawn object.
-     *               Set to -1 to disable perimeter rendering entirely.
+     *               Set to Integer.MAX_VALUE to disable perimeter rendering entirely.
      * @param x the X-coordinate of the drawn image. Where this actually is relative to the image
      *          is dependent on the render mode.
      * @param y the X-coordinate of the drawn image. Where this actually is relative to the image
@@ -41,7 +103,7 @@ public class RenderObject
      * Constructs an instance of this object in {@link RenderType#QUAD} mode.
      * @param fColor the fill color of the drawn object
      * @param pColor the perimeter (or 'stroke') color of the drawn object.
-     *               Set to -1 to disable perimeter rendering entirely.
+     *               Set to Integer.MAX_VALUE to disable perimeter rendering entirely.
      * @param x1 the 1st X-coordinate of the quadrilateral
      * @param y1 the 1nd Y-coordinate of the quadrilateral
      * @param x2 the 2nd X-coordinate of the quadrilateral
@@ -59,7 +121,7 @@ public class RenderObject
      * Constructs an instance of this object in {@link RenderType#TRI} mode.
      * @param fColor the fill color of the drawn object
      * @param pColor the perimeter (or 'stroke') color of the drawn object.
-     *               Set to -1 to disable perimeter rendering entirely.
+     *               Set to Integer.MAX_VALUE to disable perimeter rendering entirely.
      * @param x1 the 1st X-coordinate of the triangle
      * @param y1 the 1nd Y-coordinate of the triangle
      * @param x2 the 2nd X-coordinate of the triangle
@@ -76,8 +138,9 @@ public class RenderObject
      * @param isRect set this to {@code true} if drawing a {@link RenderType#RECT}, {@code false} if
      *               drawing a {@link RenderType#ELLIPSE}.
      * @param mode the ellipse/rectangle draw mode constant from {@link PApplet}.
+     * @param fColor the fill color of the drawn object
      * @param pColor the perimeter (or 'stroke') color of the drawn object.
-     *               Set to -1 to disable perimeter rendering entirely.
+     *               Set to Integer.MAX_VALUE to disable perimeter rendering entirely.
      * @param x the X-coordinate of the rectangle/ellipse. Where this actually is relative to the shape
      *          is dependent on the render mode.
      * @param y the Y-coordinate of the rectangle/ellipse. Where this actually is relative to the shape
@@ -85,33 +148,32 @@ public class RenderObject
      * @param w the horizontal diameter/width of the rectangle/ellipse
      * @param h the vertical diameter/height of the rectangle/ellipse
      */
-    public RenderObject(boolean isRect, int mode, int pColor, float x, float y, float w, float h){
-        this(isRect ? RenderType.RECT : RenderType.ELLIPSE, mode, -1, pColor, x, y, w, h);
+    public RenderObject(boolean isRect, int mode, int fColor, int pColor, float x, float y, float w, float h){
+        this(isRect ? RenderType.RECT : RenderType.ELLIPSE, mode, fColor, pColor, x, y, w, h);
     }
 
     /**
      * Constructs an instance of this object in {@link RenderType#LINE} mode.
      * @param pColor the perimeter (or 'stroke') color of the drawn object.
-     *               Set to -1 to disable perimeter rendering entirely.
+     *               Set to Integer.MAX_VALUE to disable perimeter rendering entirely.
      * @param x1 the 1st X-coordinate of the line
      * @param y1 the 1nd Y-coordinate of the line
      * @param x2 the 2nd X-coordinate of the line
      * @param y2 the 2nd Y-coordinate of the line
      */
     public RenderObject(int pColor, float x1, float y1, float x2, float y2){
-        this(RenderType.LINE, -1, -1, pColor, x1, y1, x2, y2);
+        this(RenderType.LINE, -1, Integer.MAX_VALUE, pColor, x1, y1, x2, y2);
     }
 
     /**
      * Constructs an instance of this object in {@link RenderType#POINT} mode.
-     * @param fColor the fill color of the drawn object
      * @param pColor the perimeter (or 'stroke') color of the drawn object.
-     *               Set to -1 to disable perimeter rendering entirely.
+     *               Set to Integer.MAX_VALUE to disable perimeter rendering entirely.
      * @param x the X-coordinate of the point
      * @param y the Y-coordinate of the point
      */
-    public RenderObject(int fColor, int pColor, float x, float y){
-        this(RenderType.POINT, -1, fColor, pColor, x, y);
+    public RenderObject(int pColor, float x, float y){
+        this(RenderType.POINT, -1, Integer.MAX_VALUE, pColor, x, y);
     }
 
     /**
@@ -119,10 +181,10 @@ public class RenderObject
      * coordinates to the current parent applet.
      * @param t the {@link RenderType type} of operation to execute
      * @param mode the draw mode of the operation. Only applies to certain render types.
-     *             If not used, set to {@code -1}, and it will be ignored.
+     *             If not used, set to {@code Integer.MAX_VALUE}, and it will be ignored.
      * @param fColor the fill color of the drawn object
      * @param pColor the perimeter (or 'stroke') color of the drawn object.
-     *               Set to -1 to disable perimeter rendering entirely.
+     *               Set to Integer.MAX_VALUE to disable perimeter rendering entirely.
      * @param coords a list of render-dependent coordinates and sizes to be passed to the specified
      *               render method. For example, if the render type was {@link RenderType#POINT},
      *               the provided argument should be {@code (x, y)}. Arguments past the bounds of
@@ -134,13 +196,16 @@ public class RenderObject
         this.mode = mode;
         this.color = new int[]{pColor, fColor};
         this.coords = coords;
+        this.img = null;
+        this.text = null;
+        this.align = new int[2];
     }
 
     /**
      * Renders this image through the render pipeline of the provided {@link PApplet}.
      * @param parent the {@link PApplet} to use for rendering
      */
-    private void render(PApplet parent)
+    public void render(PApplet parent)
     {
         // Ensure that array is the proper length for any render mode,
         // back-fill required indices with zeroes if it is too short
@@ -151,8 +216,10 @@ public class RenderObject
         }
 
         // Set colors
-        parent.stroke(color[0]);
-        parent.fill(color[1]);
+        if(color[0] != Integer.MAX_VALUE) parent.stroke(color[0]);
+        else parent.noStroke();
+        if(color[1] != Integer.MAX_VALUE) parent.fill(color[1]);
+        else parent.fill(0);
 
         // Pipeline to parent applet with proper method depending on render type setting
         switch (this.t)
@@ -178,18 +245,18 @@ public class RenderObject
                 parent.quad(coords[0], coords[1], coords[2], coords[3], coords[4], coords[5], coords[6], coords[7]);
                 break;
             case IMAGE:
-                PImage tmp;
                 // Resize image if resize coordinates were provided, otherwise, use the existing image
-                try {
-                    tmp = (PImage)img.clone();
+                if(coords[2] > 0 || coords[3] > 0) parent.image(img, coords[0], coords[1], coords[2], coords[3]);
+                else parent.image(img, coords[0], coords[1]);
+                break;
+            case TEXT:
+                if(mode != -1) parent.rectMode(mode);
+                // Align (or don't) based on alignment settings
+                parent.textAlign(align[0] == -1 ? parent.LEFT : align[0], align[1] == -1 ? parent.TOP : align[1]);
 
-                    if(coords[2] > 0 || coords[3] > 0)
-                        tmp.resize((int)coords[2], (int)coords[3]);
-                } catch (CloneNotSupportedException e) {
-                    tmp = img;
-                }
-
-                parent.image(tmp, coords[0], coords[1]);
+                // Confine text if confine bounds are set, otherwise just specify X,Y coordinates
+                if(coords[2] != -1 && coords[3] != -1) parent.text(text, coords[0], coords[1], coords[2], coords[3]);
+                else parent.text(text, coords[0], coords[1]);
                 break;
         }
     }

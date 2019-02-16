@@ -1,25 +1,37 @@
 package com.michaelRunzler.TPG5.Sketch;
 
+import com.michaelRunzler.TPG5.Engine.GamePhysObject;
 import com.michaelRunzler.TPG5.Engine.PhysEngine;
+import com.michaelRunzler.TPG5.Engine.PhysObject;
 import com.michaelRunzler.TPG5.Util.AppletAccessor;
+import com.michaelRunzler.TPG5.Util.CollisionEvent;
+import com.michaelRunzler.TPG5.Util.RenderObject;
 import core.CoreUtil.AUNIL.LogEventLevel;
-import core.CoreUtil.AUNIL.LogVerbosityLevel;
 import core.CoreUtil.AUNIL.XLoggerInterpreter;
 import processing.core.PApplet;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 
 public class SketchMain extends PApplet
 {
     public final int BG_COLOR = color(0);
+    public final int AI_COLOR = color(180, 20, 255);
+    public final int PLAYER_COLOR = color(255, 128, 0);
+    public final float OBJECT_SIZE = 0.05f;
+    public final float AI_START_OFFSET = 100.0f;
+    public final String PLAYER_NAME = "player_";
+    public final String AI_NAME = "AIObj_";
 
+    // Instance field for cross-class access to PApplet methods
+    private static PApplet instance;
 
     private HashMap<Integer, Boolean> pressedKeys;
     private HashMap<Integer, Boolean> pressedMouseButtons;
     private XLoggerInterpreter log;
-
-    // Instance field for cross-class access to PApplet methods
-    private static PApplet instance;
+    private PhysEngine physics;
+    private GamePhysObject player;
+    private GamePhysObject[] AIs;
 
     //
     // SETUP
@@ -35,13 +47,38 @@ public class SketchMain extends PApplet
 
         // Initialize logging system
         log = new XLoggerInterpreter("Main Applet");
-        log.changeLoggerVerbosity(LogVerbosityLevel.MINIMAL);
-        log.logEvent(LogEventLevel.DEBUG, "Initialization started at T+" + System.currentTimeMillis() + "z.");
+        log.logEvent("Initialization started at T+" + System.currentTimeMillis() + "z.");
 
         // Initialize instance variables
         pressedKeys = new HashMap<>();
         pressedMouseButtons = new HashMap<>();
 
+        // Initialize engines
+        physics = new PhysEngine();
+
+        // Add AI objects
+        ArrayList<PhysObject> obj = physics.getSimObjectsMutable();
+        AIs = new GamePhysObject[2];
+        for(int i = 0; i < AIs.length; i++) {
+            GamePhysObject gp = new GamePhysObject(200 * (i + 1), 100, AI_COLOR, height * OBJECT_SIZE);
+            gp.UID = AI_NAME + i;
+            AIs[i] = gp;
+            obj.add(gp);
+        }
+
+        // Add player-controlled object
+        player = new GamePhysObject(300, 100, PLAYER_COLOR, height * OBJECT_SIZE);
+        player.mass = 0.0f;
+        player.UID = PLAYER_NAME + 0;
+        player.addCollisionCallback((caller, collided) -> {
+            //if(collided != null && collided.UID.contains(AI_NAME)) setScene();
+        });
+
+        obj.add(player);
+
+        physics.gravity.y = 0.05f;
+
+        setScene();
 
         log.logEvent(LogEventLevel.DEBUG, "Init complete, took " + (log.getTimeSinceLastEvent() / 1000.0) + "s.");
     }
@@ -52,7 +89,20 @@ public class SketchMain extends PApplet
 
     public void draw()
     {
+        background(0);
 
+        // Render AI and player objects
+        for(GamePhysObject gp : AIs)
+            for(RenderObject ro : gp.render()) ro.render(this);
+
+        for(RenderObject ro : player.render()) ro.render(this);
+
+        if(keyHeld('A')) player.velocity.x -= 0.05;
+        else if(keyHeld('D')) player.velocity.x += 0.05;
+
+        if(keyHeld('R')) setScene();
+
+        physics.tick();
     }
 
     public void mousePressed(){
@@ -72,6 +122,38 @@ public class SketchMain extends PApplet
     }
 
     //
+    // SUBROUTINES
+    //
+
+    @SuppressWarnings("IntegerDivisionInFloatingPointContext")
+    private void setScene()
+    {
+        background(0);
+        for(int i = 0; i < AIs.length; i++)
+        {
+            // Reset object
+            GamePhysObject gp = AIs[i];
+            gp.clearTrail();
+            gp.velocity.x = 0;
+            gp.velocity.y = 0;
+
+            // Distribute spawned objects along X-axis. Every other object spawns on the opposite side (left or right)
+            // of the canvas.
+            gp.coords.x = (i + 1) % 2 == 0 ? (width - AI_START_OFFSET) : AI_START_OFFSET;
+            // Distribute spawned objects along Y-axis. Every other pair of objects flips which side (top or bottom)
+            // of the canvas that it is relative to, and increases the offset by one factor.
+            gp.coords.y = ((i + 2) / 2) % 2 == 0 ? height - (i / 2) * AI_START_OFFSET : ((i + 2) / 2) * AI_START_OFFSET;
+        }
+
+        // Reset player object
+        player.clearTrail();
+        player.velocity.x = 0;
+        player.velocity.y = 0;
+        player.coords.x = (width / 2.0f);
+        player.coords.y = (height / 2.0f);
+    }
+
+    //
     // UTILITY METHODS
     //
 
@@ -84,6 +166,13 @@ public class SketchMain extends PApplet
     public boolean getKeyCombo(int... keyCodes) {
         for(int k : keyCodes) if (!pressedKeys.get(k)) return false;
         return true;
+    }
+
+    /**
+     * Returns {@code true} if the specified key hold code exists and is currently held down.
+     */
+    public boolean keyHeld(int keyCode){
+        return pressedKeys.get(keyCode) != null && pressedKeys.get(keyCode);
     }
 
     //
