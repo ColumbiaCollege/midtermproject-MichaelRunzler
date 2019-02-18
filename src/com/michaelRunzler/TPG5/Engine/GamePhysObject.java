@@ -1,12 +1,14 @@
 package com.michaelRunzler.TPG5.Engine;
 
-import com.michaelRunzler.TPG5.Util.CollisionEvent;
 import com.michaelRunzler.TPG5.Util.RenderObject;
 import processing.core.PApplet;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+
+import static com.michaelRunzler.TPG5.Util.StaticUtils.fromARGB;
+import static com.michaelRunzler.TPG5.Util.StaticUtils.toARGB;
 
 /**
  * Holds frame, trail, and color data for a single physics-controlled
@@ -29,7 +31,7 @@ public class GamePhysObject extends PhysObject
 
     private HashMap<RenderObject, RenderObject> trail; // Contains trail geometry data for each trail frame.
                                                        // Key is outer rectangle, value is inner rectangle.
-    private ArrayList<ParticleSpray> particles;
+    private ArrayList<ParticleSpray> particles; // Register of active particle effects on this object
 
     /**
      * Standard constructor.
@@ -98,10 +100,35 @@ public class GamePhysObject extends PhysObject
         // Remove queued particles from the trail stack
         for(RenderObject r : removed) trail.remove(r);
 
-        // Assemble and return render queue
-        RenderObject[] retV = new RenderObject[(trail.size() + 1) * 2];
+        // Process particle effects that may be attached to this object
+
+        // Remove any dead particle effects (delayed remove to avoid concurrent modification exceptions)
+        ArrayList<ParticleSpray> pRemoved = new ArrayList<>();
+        for(ParticleSpray particle : particles) if (particle.isDead()) pRemoved.add(particle);
+        for(ParticleSpray p : pRemoved) particles.remove(p);
+
+        // Render any remaining effects and include them in the render queue size estimation
+        int pSize = 0;
+        RenderObject[][] particleQueue = new RenderObject[particles.size()][];
+        for (int i = 0; i < particles.size(); i++) {
+            ParticleSpray particle = particles.get(i);
+            particleQueue[i] = particle.render();
+            pSize += particleQueue[i].length;
+        }
+
+        // Assemble render queue
+        RenderObject[] retV = new RenderObject[((trail.size() + 1) * 2) + pSize];
+
+        // Add particle frames to the queue
+        int lastIndex = 0;
+        for(RenderObject[] particle : particleQueue) {
+            System.arraycopy(particle, 0, retV, lastIndex, particle.length);
+            lastIndex += particle.length;
+        }
+
+        // Add trail frames to the queue
         Iterator<RenderObject> iter = trail.keySet().iterator();
-        for(int i = 0; i < retV.length - 2; i += 2){
+        for(int i = lastIndex; i < retV.length - 2; i += 2){
             retV[i] = iter.next();
             retV[i + 1] = trail.get(retV[i]);
         }
@@ -119,10 +146,6 @@ public class GamePhysObject extends PhysObject
 
         frameCounter ++;
 
-        // Particle handling
-
-        //todo
-
         return retV;
     }
 
@@ -138,24 +161,27 @@ public class GamePhysObject extends PhysObject
     public void collision(PhysObject collided, int x, int y) {
         super.collision(collided, x, y);
 
-        //todo finish
+        // Calculate collision spray centerpoint based on collision direction. The physics engine relays different
+        // data for static and dynamic collisions,
+        float center;
+        if(collided != null) {
+            if (x > 0 && y > x) center = 180.0f;
+            else if (x < 0 && y < x) center = 0.0f;
+            else if (y > 0 && x > y) center = 270.0f;
+            else center = 90.0f;
+        }else{
+            if(x == -1) center = 0.0f;
+            else if(y == 1) center = 270.0f;
+            else if(y == -1) center = 90.0f;
+            else center = 180.0f;
+        }
+
+        particles.add(new ParticleSpray(this.coords.x, this.coords.y, 45.0f, center, this.color, ParticleSpray.STANDARD_DIAMETER, 10, 2.0f, 60));
     }
 
     @Override
     public float[] getBounds(){
         return new float[]{this.coords.x - (this.size / 2f), this.coords.y - (this.size / 2f),
                            this.coords.x + (this.size / 2f), this.coords.y + (this.size / 2f)};
-    }
-
-    //
-    // UTILITY METHODS
-    //
-
-    private int[] toARGB(int color){
-        return new int[]{(color >> 24) & 0xff, (color >> 16) & 0xff, color >> 8 & 0xff, color & 0xff};
-    }
-
-    private int fromARGB(int[] ARGB){
-        return ((ARGB[0] & 0xff) << 24 | (ARGB[1] & 0xff) << 16 | (ARGB[2] & 0xff) << 8 | (ARGB[3] & 0xff));
     }
 }

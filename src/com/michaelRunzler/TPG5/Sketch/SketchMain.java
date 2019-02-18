@@ -100,6 +100,9 @@ public class SketchMain extends PApplet
         if(keyHeld('A')) player.velocity.x -= 0.05;
         else if(keyHeld('D')) player.velocity.x += 0.05;
 
+        if(keyHeld('W')) player.velocity.y -= 0.05;
+        else if(keyHeld('S')) player.velocity.y += 0.05;
+
         if(keyHeld('R')) setScene();
 
         physics.tick();

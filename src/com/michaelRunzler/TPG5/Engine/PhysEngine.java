@@ -24,7 +24,7 @@ public class PhysEngine implements AppletAccessor
 
     private ArrayList<PhysObject> simulated;
     private HashMap<PhysObject, ArrayList<Integer>> sCollisionParity;
-    private HashMap<PhysObject, ArrayList<String>> dCollisionParity;
+    private HashMap<PhysObject, ArrayList<PhysObject>> dCollisionParity;
     public PVector gravity; // Static gravity in each axis
     public float staticCollisionPenalty; // Velocity penalty for objects colliding with a static bound
     public float dynamicCollisionPenalty; // Velocity penalty for objects colliding with each other
@@ -148,7 +148,7 @@ public class PhysEngine implements AppletAccessor
                     ignored = false;
                 }
 
-                log.logEvent(LogEventLevel.DEBUG, String.format("Collision: %s (%.3f, %.3f) %s %s%s.", p.UID, bounds[0], bounds[1],
+                log.logEvent(LogEventLevel.DEBUG, String.format("Collision: %s (%1.3f, %1.3f) %s %s%s.", p.UID, bounds[0], bounds[1],
                                                                 ignored ? "ignored collision with static bound(s)" : "collided with static bound(s)",
                                                                 aX, aY));
 
@@ -202,32 +202,52 @@ public class PhysEngine implements AppletAccessor
 
             for (int j = 0; j < prox.size(); j++)
             {
-                if(i == j) continue; // skip comparing to itself
                 if(checked[j]) continue; // skip already-checked objects
 
                 PhysObject c = prox.get(j);
                 float[] bc = c.getBounds();
 
+                // Skip checking itself
+                if(c == p) continue;
+
                 int x = colliding(b[0], b[2], bc[0], bc[2]);
                 int y = colliding(b[1], b[3], bc[1], bc[3]);
 
-                // Skip to next object if either axis is not colliding
-                if(x == 0 || y == 0) continue;
+                // Check if the collision has already been registered on a previous frame. If it has,
+                // skip checking this object. If not, register the flag for the collision and continue.
+                ArrayList<PhysObject> parityS = dCollisionParity.get(p);
+                ArrayList<PhysObject> parityC = dCollisionParity.get(c);
+
+                // Skip to next object and clear flag for this object if either axis is not colliding
+                if(x == 0 || y == 0){
+                    parityS.remove(c);
+                    parityC.remove(p);
+                    continue;
+                }
 
                 // Calculate collision transfer modifier based on overlap ratio: larger overlaps will transfer
                 // more momentum in that axis. This simulates edge-based collision physics.
                 float modX = Math.abs(x / (b[2] - b[0]));
                 float modY = Math.abs(y / (b[1] - b[3]));
 
-                //todo compensate for multi-frame non-integer clipping and acceleration
-
                 // Calculate velocity change based on collision velocity and modifier
                 float[] vX = dynamicCollisionCalc(p.velocity.x, c.velocity.x, modX);
                 float[] vY = dynamicCollisionCalc(p.velocity.y, c.velocity.y, modY);
 
+                // Set ignore flag if either object is present in the other's parity check array
+                boolean ignored = (parityS.contains(c) || parityC.contains(p));
+
                 // Log collision event
-                log.logEvent(LogEventLevel.DEBUG, String.format("Collision between objects: %s (%.2f, %.2f) and %s (%.2f, %.2f); overlap (%d, %d).",
-                                                                p.UID, b[0], b[1], c.UID, bc[0], bc[1], x, y));
+                log.logEvent(LogEventLevel.DEBUG, String.format("%s between objects: %s (%1.3f, %1.3f) and %s (%1.3f, %1.3f); overlap (%d, %d).",
+                                                                ignored ? "Ignored collision" : "Collision", p.UID, b[0], b[1], c.UID, bc[0], bc[1], x, y));
+                log.logEvent(LogEventLevel.DEBUG, String.format("Velocities: (%.2f, %.2f), (%.2f, %.2f)", p.velocity.x, p.velocity.y, c.velocity.x, c.velocity.y));
+
+                // Continue to next object if parity flags are already set for this object
+                if(ignored) continue;
+
+                // Since we now know the collision is valid (since no parity flags were set), set the flags before continuing
+                parityS.add(c);
+                parityC.add(p);
 
                 // Pass modified velocity back to objects
                 p.velocity.x = vX[0];
@@ -259,7 +279,12 @@ public class PhysEngine implements AppletAccessor
     // Apply all objects' gravity to each other based on their masses and distances from each other
     private void dynamicGravity()
     {
-
+        //f = (G * m1 * m2)/r^2
+        //
+        //G is the gravitational constant
+        //m1 and m2 are the mass of the objects
+        //r is the distance between them
+        //f is force
     }
 
     // Update each object's position based on velocity
@@ -308,7 +333,7 @@ public class PhysEngine implements AppletAccessor
         // while the slower one should remain the same sign and just gain velocity from the collision as per usual.
         // Negate the slower object - this will be a double-negation due to the above collision calculation call.
         if(sameSign){
-            if(mv2 < mv1) mv2 = -mv2;
+            if(mv2 > mv1) mv2 = -mv2;
             else mv1 = -mv1;
         }
 
