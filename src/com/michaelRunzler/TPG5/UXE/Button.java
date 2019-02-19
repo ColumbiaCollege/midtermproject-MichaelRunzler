@@ -13,7 +13,6 @@ public class Button extends UXElement
     private String text;
     private PImage BGImage;
 
-
     public Button(int x, int y, int BGColor, String text)
     {
         super();

@@ -15,9 +15,9 @@ import processing.core.PVector;
 public abstract class UXElement implements AppletAccessor, Renderable
 {
     protected PApplet parent; // Parent sketch reference
-    protected int BG; // Background color of this element
-    protected PVector pos; // Current position of this element
-    protected PVector size; // Current size of this element
+    public int BG; // Background color of this element
+    public PVector pos; // Current position of this element
+    public PVector size; // Current size of this element
     protected XLoggerInterpreter log; // Not initialized in parent class, only to be activated by subclasses
 
     /**
@@ -30,14 +30,7 @@ public abstract class UXElement implements AppletAccessor, Renderable
         BG = parent.color(0);
         pos = new PVector();
         size = new PVector();
-    }
-
-    public PVector getCoords(){
-        return pos;
-    }
-
-    public PVector getSize(){
-        return size;
+        log = null;
     }
 
     /**

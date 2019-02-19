@@ -1,4 +1,4 @@
-package com.michaelRunzler.TPG5.Engine;
+package com.michaelRunzler.TPG5.Engine.Physics;
 
 import com.michaelRunzler.TPG5.Sketch.SketchMain;
 import com.michaelRunzler.TPG5.Util.AppletAccessor;
@@ -8,11 +8,16 @@ import processing.core.PApplet;
 import processing.core.PVector;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 
+/**
+ * 2D realtime physics engine implementation.
+ * Supports dynamic and static collision, per-object Newtonian gravity,
+ * static gravity, semi-elastic collisions, and realtime object addition/removal.
+ */
 public class PhysEngine implements AppletAccessor
 {
+    // Constant values for static collision checking routine
     public static final int NONE = 0;
     public static final int LEFT = 1;
     public static final int RIGHT = 2;
@@ -23,8 +28,8 @@ public class PhysEngine implements AppletAccessor
     private XLoggerInterpreter log;
 
     private ArrayList<PhysObject> simulated;
-    private HashMap<PhysObject, ArrayList<Integer>> sCollisionParity;
-    private HashMap<PhysObject, ArrayList<PhysObject>> dCollisionParity;
+    private HashMap<PhysObject, ArrayList<Integer>> sCollisionParity; // Active-collision flag register for static collisions
+    private HashMap<PhysObject, ArrayList<PhysObject>> dCollisionParity; // Active-collision flag register for dynamic collisions
     public PVector gravity; // Static gravity in each axis
     public float staticCollisionPenalty; // Velocity penalty for objects colliding with a static bound
     public float dynamicCollisionPenalty; // Velocity penalty for objects colliding with each other
@@ -32,6 +37,9 @@ public class PhysEngine implements AppletAccessor
                                            // inherit each others' velocities, while 0 is no transfer at all. 0.5 is standard.
     private float dynamicGravityConstant; // Gravitational acceleration constant modifier for dynamic gravity. 1.0 is standard.
 
+    /**
+     * Default constructor. Sets up a physics engine with no simulated objects.
+     */
     public PhysEngine()
     {
         parent = SketchMain.getAccess();
@@ -74,6 +82,11 @@ public class PhysEngine implements AppletAccessor
         updatePosition();
     }
 
+    /**
+     * Gets a mutable reference to a simulated object by its UID property.
+     * @param UID the UID of the object to get a reference to
+     * @return a mutable reference to the requested object
+     */
     public PhysObject getObjectByUIDMutable(String UID)
     {
         for(PhysObject p : simulated)

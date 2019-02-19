@@ -1,10 +1,10 @@
 package com.michaelRunzler.TPG5.Sketch;
 
-import com.michaelRunzler.TPG5.Engine.GamePhysObject;
-import com.michaelRunzler.TPG5.Engine.PhysEngine;
-import com.michaelRunzler.TPG5.Engine.PhysObject;
+import com.michaelRunzler.TPG5.Engine.ConfigEngine;
+import com.michaelRunzler.TPG5.Engine.Physics.GamePhysObject;
+import com.michaelRunzler.TPG5.Engine.Physics.PhysEngine;
+import com.michaelRunzler.TPG5.Engine.Physics.PhysObject;
 import com.michaelRunzler.TPG5.Util.AppletAccessor;
-import com.michaelRunzler.TPG5.Util.CollisionEvent;
 import com.michaelRunzler.TPG5.Util.RenderObject;
 import core.CoreUtil.AUNIL.LogEventLevel;
 import core.CoreUtil.AUNIL.XLoggerInterpreter;
@@ -30,6 +30,7 @@ public class SketchMain extends PApplet
     private HashMap<Integer, Boolean> pressedMouseButtons;
     private XLoggerInterpreter log;
     private PhysEngine physics;
+    private ConfigEngine cfg;
     private GamePhysObject player;
     private GamePhysObject[] AIs;
 
@@ -55,6 +56,7 @@ public class SketchMain extends PApplet
 
         // Initialize engines
         physics = new PhysEngine();
+        cfg = new ConfigEngine();
 
         // Add AI objects
         ArrayList<PhysObject> obj = physics.getSimObjectsMutable();
@@ -76,6 +78,7 @@ public class SketchMain extends PApplet
 
         obj.add(player);
 
+        //todo temporary
         physics.gravity.y = 0.05f;
 
         setScene();
@@ -97,12 +100,11 @@ public class SketchMain extends PApplet
 
         for(RenderObject ro : player.render()) ro.render(this);
 
+        //todo temporary
         if(keyHeld('A')) player.velocity.x -= 0.05;
         else if(keyHeld('D')) player.velocity.x += 0.05;
-
         if(keyHeld('W')) player.velocity.y -= 0.05;
         else if(keyHeld('S')) player.velocity.y += 0.05;
-
         if(keyHeld('R')) setScene();
 
         physics.tick();

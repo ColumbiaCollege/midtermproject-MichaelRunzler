@@ -1,4 +1,4 @@
-package com.michaelRunzler.TPG5.Engine;
+package com.michaelRunzler.TPG5.Engine.Physics;
 
 import com.michaelRunzler.TPG5.Util.CollisionEvent;
 import com.michaelRunzler.TPG5.Util.RenderObject;

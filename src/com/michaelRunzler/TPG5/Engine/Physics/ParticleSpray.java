@@ -1,4 +1,4 @@
-package com.michaelRunzler.TPG5.Engine;
+package com.michaelRunzler.TPG5.Engine.Physics;
 
 import com.michaelRunzler.TPG5.Util.RenderObject;
 import com.michaelRunzler.TPG5.Util.Renderable;
@@ -7,14 +7,18 @@ import processing.core.PVector;
 
 import java.util.Random;
 
-import static com.michaelRunzler.TPG5.Engine.GamePhysObject.CENTER_BORDER_FACTOR;
-import static com.michaelRunzler.TPG5.Engine.GamePhysObject.CENTER_COLOR_DIFF;
+import static com.michaelRunzler.TPG5.Engine.Physics.GamePhysObject.CENTER_BORDER_FACTOR;
+import static com.michaelRunzler.TPG5.Engine.Physics.GamePhysObject.CENTER_COLOR_DIFF;
 import static com.michaelRunzler.TPG5.Util.StaticUtils.fromARGB;
 import static com.michaelRunzler.TPG5.Util.StaticUtils.toARGB;
 
+/**
+ * Represents a system of non-interacting particles emitted from a central point in a specified arc.
+ * These particles have a set lifetime, during which they gradually fade and lose velocity, before
+ * finally becoming invisible and 'dead'. This object uses the standard AXR (ARK eXtended Render) render pipeline.
+ */
 public class ParticleSpray implements Renderable
 {
-    public static final double SPEED_VARIANCE_RATIO = 0.2f;
     public static final float STANDARD_DIAMETER = 4;
 
     private PVector coords;
@@ -28,9 +32,22 @@ public class ParticleSpray implements Renderable
     private Random rng;
     private boolean hasFired;
 
-    private float[][] velocities;
+    private float[][] velocities; // [0] and [1] contain current velocities for each particle, [2] and [3] contain original velocities
     private RenderObject[][] particles;
 
+    /**
+     * Standard long-form constructor.
+     * @param x the X-coordinate of the emission origin point
+     * @param y the Y-coordinate of the emission origin point
+     * @param spread the width of the emission range on either side of the center angle in degrees
+     * @param centerAngle the center of the particle emission range in degrees
+     * @param color the color of particle to emit
+     * @param diameter the diameter of each particle in the system, in pixels
+     * @param count the number of particles to emit in total
+     * @param speed the maximum velocity for an emitted particle. Particles will be issued random velocities as part
+     *              of the generation process.
+     * @param life the maximum lifetime of the entire particle system in frames
+     */
     public ParticleSpray(float x, float y, float spread, float centerAngle, int color, float diameter, int count, float speed, int life)
     {
         this.coords = new PVector(x, y);
@@ -47,14 +64,16 @@ public class ParticleSpray implements Renderable
         this.hasFired = false;
     }
 
+    // Generates velocities and particle system registers. Must be called before the first call to render().
+    // render() calls this automatically if it has not already been called.
     public void fireEffect()
     {
         // Generate velocity bounds for specified angular limits
-        double vXMin = speed * Math.cos(center - spread);
-        double vXMax = speed * Math.cos(center + spread);
+        double vXMin = speed * (Math.cos(center - spread) + Math.signum(Math.cos(center)));
+        double vXMax = speed * (Math.cos(center + spread) - Math.signum(Math.cos(center)));
 
-        double vYMin = 0;
-        double vYMax = speed * Math.sin(center);
+        double vYMin = speed * (Math.sin(center - spread) + Math.signum(Math.sin(center)));
+        double vYMax = speed * (Math.sin(center + spread) - Math.signum(Math.sin(center)));
 
         for(int i = 0; i < particles.length; i++)
         {
@@ -68,14 +87,11 @@ public class ParticleSpray implements Renderable
 
             // Generate vector path from previously calculated angular bounds: generate a number from 0 to 1,
             // multiply by the bound differential, then shift into the proper range. Repeat for both X and Y.
-            double mult = rng.nextDouble();
-            double vX = mult * (vXMax - vXMin);
+            double vX = rng.nextDouble() * (vXMax - vXMin);
             vX += vXMin;
 
-            double vY = mult * (vYMax - vYMin);
+            double vY = rng.nextDouble() * (vYMax - vYMin);
             vY += vYMin;
-
-            System.out.println(String.format("VX (%.3f:%.3f), VY (%.3f:%.3f), CV (%.3f, %.3f), angle %.4f, mult %.3f", vXMin, vXMax, vYMin, vYMax, vX, vY, center, mult));
 
             // Store values in the velocity register: first set [0:1] is current velocity, second set [2:3] is starting velocity
             velocities[i][0] = (float)vX;

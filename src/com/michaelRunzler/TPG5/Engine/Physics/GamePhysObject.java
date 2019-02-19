@@ -1,4 +1,4 @@
-package com.michaelRunzler.TPG5.Engine;
+package com.michaelRunzler.TPG5.Engine.Physics;
 
 import com.michaelRunzler.TPG5.Util.RenderObject;
 import processing.core.PApplet;
@@ -11,11 +11,11 @@ import static com.michaelRunzler.TPG5.Util.StaticUtils.fromARGB;
 import static com.michaelRunzler.TPG5.Util.StaticUtils.toARGB;
 
 /**
- * Holds frame, trail, and color data for a single physics-controlled
- * game object.
+ * Holds frame, trail, geometry, and color data for a single game object.
  * The object obeys standard physics and gravity, and has a standard mass.
  * The rendered appearance of the object takes the form of a shaded square,
- * which leaves behind a 'ghost' trail as it moves.
+ * which leaves behind a 'ghost' trail as it moves, and emits particles when it collides
+ * with another object or static bound.
  */
 public class GamePhysObject extends PhysObject
 {
@@ -158,25 +158,50 @@ public class GamePhysObject extends PhysObject
     }
 
     @Override
-    public void collision(PhysObject collided, int x, int y) {
+    public void collision(PhysObject collided, int x, int y)
+    {
         super.collision(collided, x, y);
 
         // Calculate collision spray centerpoint based on collision direction. The physics engine relays different
         // data for static and dynamic collisions,
         float center;
-        if(collided != null) {
-            if (x > 0 && y > x) center = 180.0f;
-            else if (x < 0 && y < x) center = 0.0f;
-            else if (y > 0 && x > y) center = 270.0f;
-            else center = 90.0f;
-        }else{
-            if(x == -1) center = 0.0f;
-            else if(y == 1) center = 270.0f;
-            else if(y == -1) center = 90.0f;
-            else center = 180.0f;
+        if(collided != null) { // Object-object collision
+            if (x > 0 && y > x) center = 180.0f; // collision from object to RIGHT
+            else if (x < 0 && y < x) center = 0.0f; // collision from object to LEFT
+            else if (y > 0 && x > y) center = 270.0f; // collision from object to TOP
+            else center = 90.0f; // collision from object to BOTTOM
+        }else{ // Static bound collision
+            if(x == -1) center = 0.0f; // collision from LEFT side
+            else if(y == 1) center = 270.0f; // collision from TOP side
+            else if(y == -1) center = 90.0f; // collision from BOTTOM side
+            else center = 180.0f; // collision from RIGHT side
         }
 
-        particles.add(new ParticleSpray(this.coords.x, this.coords.y, 45.0f, center, this.color, ParticleSpray.STANDARD_DIAMETER, 10, 2.0f, 60));
+        // Calculate origin point based on collision axis
+        float[] bounds = this.getBounds();
+        float cX = 0f;
+        float cY = 0f;
+        switch ((int)center){
+            case 0:
+                cX = bounds[0];
+                cY = this.coords.y;
+                break;
+            case 90:
+                cX = this.coords.x;
+                cY = bounds[1];
+                break;
+            case 180:
+                cX = bounds[2];
+                cY = this.coords.y;
+                break;
+            case 270:
+                cX = this.coords.x;
+                cY = bounds[3];
+                break;
+        }
+
+        // Construct and add particle system to particle register
+        particles.add(new ParticleSpray(cX, cY, 45.0f, center, this.color, ParticleSpray.STANDARD_DIAMETER, 10, 3.0f, 60));
     }
 
     @Override
