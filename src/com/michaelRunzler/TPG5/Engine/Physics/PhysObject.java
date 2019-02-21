@@ -27,7 +27,7 @@ public abstract class PhysObject implements Renderable
         UID = "INV";
         coords = new PVector();
         velocity = new PVector();
-        mass = 0.0f;
+        mass = 1.0f;
         handlers = new ArrayList<>();
     }
 
@@ -65,15 +65,14 @@ public abstract class PhysObject implements Renderable
      * or to change properties of the object itself, such as mass.
      * By default, calls any collision callbacks, if there are any.
      * @param collided the {@link PhysObject} with which this object has collided.
-     * @param x the sign of the X-axis in which this object collided with the other object
-     * @param y the sign of the Y-axis in which this object collided with the other object
+     * @param a angle at which the other object collided with this object
      */
-    public void collision(PhysObject collided, int x, int y){
+    public void collision(PhysObject collided, float a){
         for(CollisionEvent c : handlers) c.action(this, collided);
     }
 
     /**
-     * Adds a collision callback object to be called whenever a collision takes place (whenever {@link #collision(PhysObject, int, int)}
+     * Adds a collision callback object to be called whenever a collision takes place (whenever {@link #collision(PhysObject, float)}
      * is called).
      * @param e the collision handler object to add
      */

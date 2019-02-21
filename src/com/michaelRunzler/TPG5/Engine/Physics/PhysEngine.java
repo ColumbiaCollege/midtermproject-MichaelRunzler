@@ -57,7 +57,7 @@ public class PhysEngine implements AppletAccessor
         staticCollisionPenalty = 0.0f;
         dynamicCollisionPenalty = 0.0f;
         dynamicCollisionTransfer = 0.5f;
-        dynamicGravityConstant = 1.0f;
+        dynamicGravityConstant = 4000.0f;
 
         log.logEvent("Initialization complete in " + (log.getTimeSinceLastEvent() / 1000.0) + "s");
     }
@@ -78,7 +78,7 @@ public class PhysEngine implements AppletAccessor
         staticCollision();
         dynamicCollision();
         staticGravity();
-        dynamicGravity();
+        //dynamicGravity();
         updatePosition();
     }
 
@@ -136,28 +136,33 @@ public class PhysEngine implements AppletAccessor
                 // Log collision
                 String aX = "";
                 String aY = "";
-                int cX = 0;
-                int cY = 0;
+                float[] angles = new float[2];
                 if (collisionAxis[0] == LEFT) {
                     aX = "LEFT";
-                    cX = -1;
+                    angles[0] = 0.0f;
                 } else if (collisionAxis[0] == RIGHT) {
                     aY = "RIGHT";
-                    cX = 1;
+                    angles[0] = 180.0f;
                 }
 
                 if (collisionAxis[1] == TOP) {
                     aY = "TOP";
-                    cY = -1;
+                    angles[1] = 90.0f;
                 } else if (collisionAxis[1] == BOTTOM) {
                     aY = "BOTTOM";
-                    cY = 1;
+                    angles[1] = 270.0f;
                 }
 
                 boolean ignored = true;
                 // Call listener if collision is valid
-                if((collisionAxis[0] != NONE && !parity.contains(collisionAxis[0])) || (collisionAxis[1] != NONE && !parity.contains(collisionAxis[1]))) {
-                    p.collision(null, cX, cY);
+                if((collisionAxis[0] != NONE && !parity.contains(collisionAxis[0])) || (collisionAxis[1] != NONE && !parity.contains(collisionAxis[1])))
+                {
+                    float a;
+                    if(collisionAxis[0] != NONE && collisionAxis[1] != NONE)
+                        a = ((angles[0] + angles[1]) / 2) % 180;
+                    else a = angles[0] + angles[1];
+
+                    p.collision(null, a);
                     ignored = false;
                 }
 
@@ -223,37 +228,38 @@ public class PhysEngine implements AppletAccessor
                 // Skip checking itself
                 if(c == p) continue;
 
-                int x = colliding(b[0], b[2], bc[0], bc[2]);
-                int y = colliding(b[1], b[3], bc[1], bc[3]);
+                boolean collision = colliding(p.coords.x, c.coords.x, b[2] - b[0], bc[2] - bc[0])
+                        && colliding(p.coords.y, c.coords.y, b[3] - b[1], bc[3] - bc[1]);
 
-                // Check if the collision has already been registered on a previous frame. If it has,
-                // skip checking this object. If not, register the flag for the collision and continue.
+                float a = -1.0f;
+                PVector tri = null;
+                if(collision){
+                    tri = PVector.sub(c.coords, p.coords);
+                    tri.normalize();
+                    a = (float)Math.toDegrees(Math.atan2(tri.y, tri.x));
+                }
+
                 ArrayList<PhysObject> parityS = dCollisionParity.get(p);
                 ArrayList<PhysObject> parityC = dCollisionParity.get(c);
 
-                // Skip to next object and clear flag for this object if either axis is not colliding
-                if(x == 0 || y == 0){
+                // Skip to next object and clear flag for this object if it is not colliding
+                if(!collision){
                     parityS.remove(c);
                     parityC.remove(p);
                     continue;
                 }
 
-                // Calculate collision transfer modifier based on overlap ratio: larger overlaps will transfer
-                // more momentum in that axis. This simulates edge-based collision physics.
-                float modX = Math.abs(x / (b[2] - b[0]));
-                float modY = Math.abs(y / (b[1] - b[3]));
-
-                // Calculate velocity change based on collision velocity and modifier
-                float[] vX = dynamicCollisionCalc(p.velocity.x, c.velocity.x, modX);
-                float[] vY = dynamicCollisionCalc(p.velocity.y, c.velocity.y, modY);
+                // Calculate velocity change
+                float[] vX = dynamicCollisionCalc(p.velocity.x, c.velocity.x, tri.x);
+                float[] vY = dynamicCollisionCalc(p.velocity.y, c.velocity.y, tri.y);
 
                 // Set ignore flag if either object is present in the other's parity check array
                 boolean ignored = (parityS.contains(c) || parityC.contains(p));
 
                 // Log collision event
-                log.logEvent(LogEventLevel.DEBUG, String.format("%s between objects: %s (%1.3f, %1.3f) and %s (%1.3f, %1.3f); overlap (%d, %d).",
-                                                                ignored ? "Ignored collision" : "Collision", p.UID, b[0], b[1], c.UID, bc[0], bc[1], x, y));
-                log.logEvent(LogEventLevel.DEBUG, String.format("Velocities: (%.2f, %.2f), (%.2f, %.2f)", p.velocity.x, p.velocity.y, c.velocity.x, c.velocity.y));
+                log.logEvent(LogEventLevel.DEBUG, String.format("%s between objects: %s (%1.3f, %1.3f) and %s (%1.3f, %1.3f); angle %.3f.",
+                                                                ignored ? "Ignored collision" : "Collision", p.UID, b[0], b[1], c.UID, bc[0], bc[1], a));
+                log.logEvent(LogEventLevel.INFO, String.format("Velocity totals: %.3f, %.3f : %.3f", p.velocity.mag(), c.velocity.mag(), p.velocity.mag() + c.velocity.mag()));
 
                 // Continue to next object if parity flags are already set for this object
                 if(ignored) continue;
@@ -270,8 +276,8 @@ public class PhysEngine implements AppletAccessor
                 c.velocity.y = vY[1];
 
                 // Call collision listeners on both objects, reversing the sign of the collision for the second object
-                p.collision(c, x, y);
-                c.collision(p, -x, -y);
+                p.collision(c, a);
+                c.collision(p, 360.0f - a);
             }
 
             // This object has been checked against all other objects in the array, flag it as such
@@ -292,12 +298,30 @@ public class PhysEngine implements AppletAccessor
     // Apply all objects' gravity to each other based on their masses and distances from each other
     private void dynamicGravity()
     {
-        //f = (G * m1 * m2)/r^2
-        //
-        //G is the gravitational constant
-        //m1 and m2 are the mass of the objects
-        //r is the distance between them
-        //f is force
+        // Run through each simulated object, comparing to every other object. Not a bidirectional comparison,
+        // compared (or target) object is not modified during comparison to avoid double-modification.
+        for(PhysObject p : simulated) {
+            for(PhysObject c : simulated)
+            {
+                // Skip comparing to itself
+                if(p == c) continue;
+
+                // Calculate distance and gravitational force between the two objects
+                float dist = p.coords.dist(c.coords);
+                float force = (dynamicGravityConstant * p.mass * c.mass)/(float)Math.pow(dist, 2);
+
+                PVector fVector = PVector.sub(c.coords, p.coords);
+                fVector.normalize();
+                float fX = force * fVector.x;
+                float fY = force * fVector.y;
+
+                fX *= force;
+                fY *= force;
+
+                p.velocity.x += fX;
+                p.velocity.y += fY;
+            }
+        }
     }
 
     // Update each object's position based on velocity
@@ -331,57 +355,36 @@ public class PhysEngine implements AppletAccessor
 
     // Calculate velocity reversal, zero-velocity clipping, and collision penalties,
     // along with velocity transfer
-    private float[] dynamicCollisionCalc(float v1, float v2, float modifier)
+    private float[] dynamicCollisionCalc(float v1, float v2, float ratio)
     {
-        // Check to see if both objects are traveling in the same direction. Trigger special handling if so.
-        boolean sameSign = (v1 < 0 && v2 < 0) || (v1 >= 0 && v2 >= 0);
+        float[] velocities = new float[2];
 
-        //todo same-sign handling not working
+        // Transfer component velocities
+        velocities[0] = v1;
+        velocities[1] = v2;
 
-        // Reversal and impact penalty calculation - !signs are reversed!
-        float mv1 = staticCollisionCalc(v1, dynamicCollisionPenalty);
-        float mv2 = staticCollisionCalc(v2, dynamicCollisionPenalty);
+        float t12 = v1 * ratio; // energy transfer from v1 to v2
+        float t21 = v2 * ratio; // inverse
 
-        // Account for collision in the same axis - the faster object is the one that should have its sign reversed,
-        // while the slower one should remain the same sign and just gain velocity from the collision as per usual.
-        // Negate the slower object - this will be a double-negation due to the above collision calculation call.
-        if(sameSign){
-            if(mv2 > mv1) mv2 = -mv2;
-            else mv1 = -mv1;
-        }
+        // Add delta velocities to target objects
+        velocities[0] += t21;
+        velocities[1] += t12;
 
-        // Calculate how much energy is to be lost from each object and added to the other one
-        float transfer1 = (modifier * (dynamicCollisionTransfer * -mv2));
-        float transfer2 = (modifier * (dynamicCollisionTransfer * -mv1));
+        // Maintain conservation of energy; remove added velocities from their source objects
+        velocities[0] -= t12;
+        velocities[1] -= t21;
 
-        // Swap energy
-        mv1 += transfer1; // energy from v2
-        mv1 += transfer2; // lost energy to v2
-
-        mv2 += transfer2; // energy from v1
-        mv2 += transfer1; // lost energy to v1
-
-        return new float[]{mv1, mv2};
+        return velocities;
     }
 
     /**
-     * Checks collision between two objects with the provided axis bounds.
-     * Return codes:
-     * 0: not colliding
-     * (x < -1): colliding, object 1 toward - axis. Number is collision overlap in pixels.
-     * (x > 1): colliding, object 1 toward + axis. Number is collision overlap in pixels.
+     * Checks collision between two objects with the provided center coordinates and bounds.
      */
-    private int colliding(float min1, float max1, float min2, float max2)
+    private boolean colliding(float c1, float c2, float w1, float w2)
     {
-        // if object 1 is to the - axis
-        if(min1 < min2){
-            // if object 1 is inside object 2's bound
-            if(max1 > min2) return -(int)(max1 - min2);
-            else return 0;
-        }else{ // if object 1 is to the + axis
-            // if object 2 is inside object 1's bound
-            if(max2 > min1) return (int)(max2 - min1);
-            else return 0;
-        }
+        float dist = Math.abs(c1 - c2);
+        float size = (w1 / 2.0f) + (w2 / 2.0f);
+
+        return dist <= size;
     }
 }

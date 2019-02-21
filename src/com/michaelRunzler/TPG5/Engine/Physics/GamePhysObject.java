@@ -158,50 +158,18 @@ public class GamePhysObject extends PhysObject
     }
 
     @Override
-    public void collision(PhysObject collided, int x, int y)
+    public void collision(PhysObject collided, float a)
     {
-        super.collision(collided, x, y);
-
-        // Calculate collision spray centerpoint based on collision direction. The physics engine relays different
-        // data for static and dynamic collisions,
-        float center;
-        if(collided != null) { // Object-object collision
-            if (x > 0 && y > x) center = 180.0f; // collision from object to RIGHT
-            else if (x < 0 && y < x) center = 0.0f; // collision from object to LEFT
-            else if (y > 0 && x > y) center = 270.0f; // collision from object to TOP
-            else center = 90.0f; // collision from object to BOTTOM
-        }else{ // Static bound collision
-            if(x == -1) center = 0.0f; // collision from LEFT side
-            else if(y == 1) center = 270.0f; // collision from TOP side
-            else if(y == -1) center = 90.0f; // collision from BOTTOM side
-            else center = 180.0f; // collision from RIGHT side
-        }
+        super.collision(collided, a);
 
         // Calculate origin point based on collision axis
         float[] bounds = this.getBounds();
-        float cX = 0f;
-        float cY = 0f;
-        switch ((int)center){
-            case 0:
-                cX = bounds[0];
-                cY = this.coords.y;
-                break;
-            case 90:
-                cX = this.coords.x;
-                cY = bounds[1];
-                break;
-            case 180:
-                cX = bounds[2];
-                cY = this.coords.y;
-                break;
-            case 270:
-                cX = this.coords.x;
-                cY = bounds[3];
-                break;
-        }
+        float cX = this.coords.x;
+        float cY = this.coords.y;
+        //todo calculate origin point from angle
 
         // Construct and add particle system to particle register
-        particles.add(new ParticleSpray(cX, cY, 45.0f, center, this.color, ParticleSpray.STANDARD_DIAMETER, 10, 3.0f, 60));
+        particles.add(new ParticleSpray(cX, cY, 45.0f, a, this.color, ParticleSpray.STANDARD_DIAMETER, 10, 3.0f, 60));
     }
 
     @Override

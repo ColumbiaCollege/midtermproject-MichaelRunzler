@@ -7,6 +7,7 @@ import com.michaelRunzler.TPG5.Engine.Physics.PhysObject;
 import com.michaelRunzler.TPG5.Util.AppletAccessor;
 import com.michaelRunzler.TPG5.Util.RenderObject;
 import core.CoreUtil.AUNIL.LogEventLevel;
+import core.CoreUtil.AUNIL.LogVerbosityLevel;
 import core.CoreUtil.AUNIL.XLoggerInterpreter;
 import processing.core.PApplet;
 
@@ -70,7 +71,6 @@ public class SketchMain extends PApplet
 
         // Add player-controlled object
         player = new GamePhysObject(300, 100, PLAYER_COLOR, height * OBJECT_SIZE);
-        player.mass = 0.0f;
         player.UID = PLAYER_NAME + 0;
         player.addCollisionCallback((caller, collided) -> {
             //if(collided != null && collided.UID.contains(AI_NAME)) setScene();
