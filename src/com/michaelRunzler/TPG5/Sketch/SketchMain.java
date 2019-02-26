@@ -5,11 +5,13 @@ import com.michaelRunzler.TPG5.Engine.Physics.GamePhysObject;
 import com.michaelRunzler.TPG5.Engine.Physics.PhysEngine;
 import com.michaelRunzler.TPG5.Engine.Physics.PhysObject;
 import com.michaelRunzler.TPG5.Util.AppletAccessor;
+import com.michaelRunzler.TPG5.Util.CollisionEvent;
 import com.michaelRunzler.TPG5.Util.RenderObject;
 import core.CoreUtil.AUNIL.LogEventLevel;
 import core.CoreUtil.AUNIL.LogVerbosityLevel;
 import core.CoreUtil.AUNIL.XLoggerInterpreter;
 import processing.core.PApplet;
+import processing.core.PVector;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -21,6 +23,10 @@ public class SketchMain extends PApplet
     public final int PLAYER_COLOR = color(255, 128, 0);
     public final float OBJECT_SIZE = 0.05f;
     public final float AI_START_OFFSET = 100.0f;
+    public final float PLAYER_SLOWDOWN = 0.05f;
+    public final float PLAYER_ACCEL = 0.20f;
+    public final float AI_ACCELERATION = 0.40f;
+    public final int AI_DISENTANGLE_THRESHOLD = 30;
     public final String PLAYER_NAME = "player_";
     public final String AI_NAME = "AIObj_";
 
@@ -34,6 +40,7 @@ public class SketchMain extends PApplet
     private ConfigEngine cfg;
     private GamePhysObject player;
     private GamePhysObject[] AIs;
+    private int[] framesSinceLastCollision;
 
     //
     // SETUP
@@ -62,9 +69,20 @@ public class SketchMain extends PApplet
         // Add AI objects
         ArrayList<PhysObject> obj = physics.getSimObjectsMutable();
         AIs = new GamePhysObject[2];
-        for(int i = 0; i < AIs.length; i++) {
+        framesSinceLastCollision = new int[AIs.length];
+        for(int i = 0; i < AIs.length; i++)
+        {
             GamePhysObject gp = new GamePhysObject(200 * (i + 1), 100, AI_COLOR, height * OBJECT_SIZE);
             gp.UID = AI_NAME + i;
+            final int ID = i;
+
+            gp.addCollisionCallback((caller, collided) -> {
+                if(collided == null) return;
+                if(framesSinceLastCollision[ID] < AI_DISENTANGLE_THRESHOLD)
+                    track(caller, collided, -(AI_ACCELERATION * 8));
+                framesSinceLastCollision[ID] = 0;
+            });
+
             AIs[i] = gp;
             obj.add(gp);
         }
@@ -73,13 +91,13 @@ public class SketchMain extends PApplet
         player = new GamePhysObject(300, 100, PLAYER_COLOR, height * OBJECT_SIZE);
         player.UID = PLAYER_NAME + 0;
         player.addCollisionCallback((caller, collided) -> {
-            //if(collided != null && collided.UID.contains(AI_NAME)) setScene();
+            if(collided != null && collided.UID.contains(AI_NAME)) setScene();
         });
 
         obj.add(player);
-
-        //todo temporary
-        physics.gravity.y = 0.05f;
+        physics.dynamicGravityConstant = 0.0f;
+        physics.dynamicCollisionPenalty = 0.25f;
+        physics.staticCollisionPenalty = 0.50f;
 
         setScene();
 
@@ -95,17 +113,40 @@ public class SketchMain extends PApplet
         background(0);
 
         // Render AI and player objects
-        for(GamePhysObject gp : AIs)
-            for(RenderObject ro : gp.render()) ro.render(this);
+        for (int i = 0; i < AIs.length; i++) {
+            GamePhysObject gp = AIs[i];
+            framesSinceLastCollision[i] ++;
+            for (RenderObject ro : gp.render()) ro.render(this);
+        }
 
         for(RenderObject ro : player.render()) ro.render(this);
 
+        if(keyHeld('A')) player.velocity.x += -PLAYER_ACCEL;
+        else if(keyHeld('D')) player.velocity.x += PLAYER_ACCEL;
+        else{
+            if(Math.abs(player.velocity.x) < PLAYER_SLOWDOWN) player.velocity.x = 0.0f;
+            else if(player.velocity.x < 0.0f) player.velocity.x -= -PLAYER_SLOWDOWN;
+            else player.velocity.x -= PLAYER_SLOWDOWN;
+        }
+
+        if(keyHeld('W')) player.velocity.y += -PLAYER_ACCEL;
+        else if(keyHeld('S')) player.velocity.y += PLAYER_ACCEL;
+        else{
+            if(Math.abs(player.velocity.y) < PLAYER_SLOWDOWN) player.velocity.y = 0.0f;
+            else if(player.velocity.y < 0.0f) player.velocity.y -= -PLAYER_SLOWDOWN;
+            else player.velocity.y -= PLAYER_SLOWDOWN;
+        }
+
         //todo temporary
-        if(keyHeld('A')) player.velocity.x -= 0.05;
-        else if(keyHeld('D')) player.velocity.x += 0.05;
-        if(keyHeld('W')) player.velocity.y -= 0.05;
-        else if(keyHeld('S')) player.velocity.y += 0.05;
         if(keyHeld('R')) setScene();
+
+        for(PhysObject p : AIs) {
+            track(p, player, AI_ACCELERATION);
+            for(PhysObject c : AIs){
+                if(p == c) continue;
+                track(p, c, AI_ACCELERATION / 2);
+            }
+        }
 
         physics.tick();
     }
@@ -156,6 +197,27 @@ public class SketchMain extends PApplet
         player.velocity.y = 0;
         player.coords.x = (width / 2.0f);
         player.coords.y = (height / 2.0f);
+    }
+
+    private void track(PhysObject tracker, PhysObject tracked, float trackForce)
+    {
+        // Skip comparing to itself
+        if(tracker == tracked) return;
+
+        //float dist = tracker.coords.dist(tracked.coords);
+        //float force = trackForce * (dist / width);
+        float force = trackForce;
+
+        PVector fVector = PVector.sub(tracked.coords, tracker.coords);
+        fVector.normalize();
+        float fX = force * fVector.x;
+        float fY = force * fVector.y;
+
+        fX *= force;
+        fY *= force;
+
+        tracker.velocity.x += fX;
+        tracker.velocity.y += fY;
     }
 
     //

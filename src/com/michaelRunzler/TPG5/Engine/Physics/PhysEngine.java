@@ -35,7 +35,7 @@ public class PhysEngine implements AppletAccessor
     public float dynamicCollisionPenalty; // Velocity penalty for objects colliding with each other
     public float dynamicCollisionTransfer; // Velocity transfer ratio between two objects. 1.0 means that the objects would
                                            // inherit each others' velocities, while 0 is no transfer at all. 0.5 is standard.
-    private float dynamicGravityConstant; // Gravitational acceleration constant modifier for dynamic gravity. 1.0 is standard.
+    public float dynamicGravityConstant; // Gravitational acceleration constant modifier for dynamic gravity. 5000.0 is standard.
 
     /**
      * Default constructor. Sets up a physics engine with no simulated objects.
@@ -56,8 +56,8 @@ public class PhysEngine implements AppletAccessor
         gravity = new PVector();
         staticCollisionPenalty = 0.0f;
         dynamicCollisionPenalty = 0.0f;
-        dynamicCollisionTransfer = 0.5f;
-        dynamicGravityConstant = 4000.0f;
+        dynamicCollisionTransfer = 0.05f;
+        dynamicGravityConstant = 5000.0f;
 
         log.logEvent("Initialization complete in " + (log.getTimeSinceLastEvent() / 1000.0) + "s");
     }
@@ -78,7 +78,7 @@ public class PhysEngine implements AppletAccessor
         staticCollision();
         dynamicCollision();
         staticGravity();
-        //dynamicGravity();
+        dynamicGravity();
         updatePosition();
     }
 
@@ -199,6 +199,7 @@ public class PhysEngine implements AppletAccessor
             xCoords[i] = b[0];
         }
 
+        //fixme checks each pair twice
         // check bounds for X-axis proximity
         ArrayList<PhysObject> prox = new ArrayList<>();
         for(int i = 0; i < xCoords.length; i++)
@@ -250,8 +251,8 @@ public class PhysEngine implements AppletAccessor
                 }
 
                 // Calculate velocity change
-                float[] vX = dynamicCollisionCalc(p.velocity.x, c.velocity.x, tri.x);
-                float[] vY = dynamicCollisionCalc(p.velocity.y, c.velocity.y, tri.y);
+                float[] vX = dCollisionCalcSimple(p.velocity.x, c.velocity.x, tri.x);
+                float[] vY = dCollisionCalcSimple(p.velocity.y, c.velocity.y, tri.y);
 
                 // Set ignore flag if either object is present in the other's parity check array
                 boolean ignored = (parityS.contains(c) || parityC.contains(p));
@@ -259,7 +260,7 @@ public class PhysEngine implements AppletAccessor
                 // Log collision event
                 log.logEvent(LogEventLevel.DEBUG, String.format("%s between objects: %s (%1.3f, %1.3f) and %s (%1.3f, %1.3f); angle %.3f.",
                                                                 ignored ? "Ignored collision" : "Collision", p.UID, b[0], b[1], c.UID, bc[0], bc[1], a));
-                log.logEvent(LogEventLevel.INFO, String.format("Velocity totals: %.3f, %.3f : %.3f", p.velocity.mag(), c.velocity.mag(), p.velocity.mag() + c.velocity.mag()));
+                //log.logEvent(LogEventLevel.INFO, String.format("Velocity totals: %.3f, %.3f : %.3f", p.velocity.mag(), c.velocity.mag(), p.velocity.mag() + c.velocity.mag()));
 
                 // Continue to next object if parity flags are already set for this object
                 if(ignored) continue;
@@ -345,26 +346,35 @@ public class PhysEngine implements AppletAccessor
         v = -v;
         if(Math.abs(v) <= penalty)
             v = 0;
-        else if(v > 0)
-            v -= penalty;
-        else if(v < 0)
-            v += penalty;
+        else{
+            v *= (1.0f - penalty);
+        }
 
         return v;
     }
 
     // Calculate velocity reversal, zero-velocity clipping, and collision penalties,
     // along with velocity transfer
+    @Deprecated
     private float[] dynamicCollisionCalc(float v1, float v2, float ratio)
     {
         float[] velocities = new float[2];
+        float r = Math.abs(ratio); // Ensure ratio is positive
 
         // Transfer component velocities
         velocities[0] = v1;
         velocities[1] = v2;
 
-        float t12 = v1 * ratio; // energy transfer from v1 to v2
-        float t21 = v2 * ratio; // inverse
+        // Scale transfer
+        float mod1 = v1 / (v2 == 0.0f ? v1 : v2);
+        float mod2 = v2 / (v1 == 0.0f ? v2 : v1);
+
+        float t12 = v1 * (r * dynamicCollisionTransfer * mod1); // energy transfer from v1 to v2
+        float t21 = v2 * (r * dynamicCollisionTransfer * mod2); // inverse
+
+        // Cap transfers at the current velocity that the objects have
+        t12 = t12 > v1 ? v1 : t12;
+        t21 = t21 > v2 ? v2 : t21;
 
         // Add delta velocities to target objects
         velocities[0] += t21;
@@ -373,6 +383,18 @@ public class PhysEngine implements AppletAccessor
         // Maintain conservation of energy; remove added velocities from their source objects
         velocities[0] -= t12;
         velocities[1] -= t21;
+
+        return velocities;
+    }
+
+    private float[] dCollisionCalcSimple(float v1, float v2, float ratio)
+    {
+        float[] velocities = new float[2];
+        velocities[0] = v2;
+        velocities[1] = v1;
+
+        velocities[0] *= (1.0f - dynamicCollisionPenalty);
+        velocities[1] *= (1.0f - dynamicCollisionPenalty);
 
         return velocities;
     }
