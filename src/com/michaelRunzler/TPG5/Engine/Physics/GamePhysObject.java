@@ -90,6 +90,7 @@ public class GamePhysObject extends PhysObject
                 oColor = toARGB(i.color[1]);
                 oColor[0] -= deltaColor;
                 i.color[1] = fromARGB(oColor);
+
                 // Scale transform to match outer rectangle's transform
                 i.coords[2] -= deltaSize * CENTER_BORDER_FACTOR;
                 i.coords[3] -= deltaSize * CENTER_BORDER_FACTOR;

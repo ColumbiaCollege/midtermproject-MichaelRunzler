@@ -12,6 +12,7 @@ import com.michaelRunzler.TPG5.Util.RenderObject;
 import core.CoreUtil.AUNIL.LogEventLevel;
 import core.CoreUtil.AUNIL.XLoggerInterpreter;
 import processing.core.PApplet;
+import processing.core.PImage;
 import processing.core.PVector;
 
 import java.util.ArrayList;
@@ -30,7 +31,7 @@ public class SketchMain extends PApplet
     public final float PLAYER_SLOWDOWN = 0.05f;
     public final float PLAYER_ACCEL = 0.30f;
     public final float AI_ACCELERATION = 0.25f;
-    public final float AI_SPEED_CAP = 25.0f;
+    public final float AI_SPEED_CAP = 20.0f;
 
     // Names and UIDs
     public final String PLAYER_NAME = "player_";
@@ -42,6 +43,7 @@ public class SketchMain extends PApplet
     // State storage
     private HashMap<Integer, Boolean> pressedKeys;
     private HashMap<Integer, Boolean> pressedMouseButtons;
+    private PImage BG;
 
     // Engines and interfaces
     private XLoggerInterpreter log;
@@ -100,6 +102,7 @@ public class SketchMain extends PApplet
                 // Add death particle effect handlers to the register and reset the scene/score counter
                 death[0] = new ParticleSpray(player.coords.x, player.coords.y, 90.0f, 900.0f, PLAYER_COLOR, ParticleSpray.STANDARD_DIAMETER, 40, 5.0f, 60);
                 death[1] = new ParticleSpray(player.coords.x, player.coords.y, 90.0f, 270.0f, PLAYER_COLOR, ParticleSpray.STANDARD_DIAMETER, 40, 5.0f, 60);
+                highScoreCalc();
                 setScene();
                 score.reset();
             }
@@ -142,44 +145,29 @@ public class SketchMain extends PApplet
         // Render UI elements
         for(RenderObject ro : score.render()) ro.render(this);
 
-        // Accept input and calculate 'friction' slowdown for horizontal axis
-        if(keyHeld('A')) player.velocity.x += -PLAYER_ACCEL;
-        else if(keyHeld('D')) player.velocity.x += PLAYER_ACCEL;
-        else{
-            if(Math.abs(player.velocity.x) < PLAYER_SLOWDOWN) player.velocity.x = 0.0f;
-            else if(player.velocity.x < 0.0f) player.velocity.x -= -PLAYER_SLOWDOWN;
-            else player.velocity.x -= PLAYER_SLOWDOWN;
-        }
-
-        // Accept input and calculate 'friction' slowdown for vertical axis
-        if(keyHeld('W')) player.velocity.y += -PLAYER_ACCEL;
-        else if(keyHeld('S')) player.velocity.y += PLAYER_ACCEL;
-        else{
-            if(Math.abs(player.velocity.y) < PLAYER_SLOWDOWN) player.velocity.y = 0.0f;
-            else if(player.velocity.y < 0.0f) player.velocity.y -= -PLAYER_SLOWDOWN;
-            else player.velocity.y -= PLAYER_SLOWDOWN;
-        }
-
         // Calculate 'AI' object tracking and velocity calculation
-        for(PhysObject p : AIs) {
+        for(PhysObject p : AIs)
+        {
+            // Track towards player object
             track(p, player, AI_ACCELERATION);
 
             if(Math.abs(p.velocity.x + p.velocity.y) > AI_SPEED_CAP)
             {
-                // Limit the combined velocity of the two objects to below the threshold
-                log.logEvent(LogEventLevel.DEBUG, String.format("Limited speed of object %s, (%.3f, %.3f)", p.UID, p.velocity.x, p.velocity.y));
+                // Limit the combined velocity of the two axes to below the threshold
                 PVector f = new PVector(p.velocity.x, p.velocity.y);
                 f.normalize();
                 p.velocity.x = AI_SPEED_CAP * f.x;
                 p.velocity.y = AI_SPEED_CAP * f.y;
-                log.logEvent(String.format("Limited speed to (%.3f, %.3f); (%.3f, %.3f)", f.x, f.y, p.velocity.x, p.velocity.y));
             }
+
+            // Track away from other AI objects
             for(PhysObject c : AIs){
                 if(p == c) continue;
                 track(p, c, -AI_ACCELERATION / 4);
             }
         }
 
+        playerInput();
         physics.tick();
     }
 
@@ -244,6 +232,32 @@ public class SketchMain extends PApplet
 
         tracker.velocity.x += fX;
         tracker.velocity.y += fY;
+    }
+
+    private void playerInput()
+    {
+        // Accept input and calculate 'friction' slowdown for horizontal axis
+        if(keyHeld('A')) player.velocity.x += -PLAYER_ACCEL;
+        else if(keyHeld('D')) player.velocity.x += PLAYER_ACCEL;
+        else{
+            if(Math.abs(player.velocity.x) < PLAYER_SLOWDOWN) player.velocity.x = 0.0f;
+            else if(player.velocity.x < 0.0f) player.velocity.x -= -PLAYER_SLOWDOWN;
+            else player.velocity.x -= PLAYER_SLOWDOWN;
+        }
+
+        // Accept input and calculate 'friction' slowdown for vertical axis
+        if(keyHeld('W')) player.velocity.y += -PLAYER_ACCEL;
+        else if(keyHeld('S')) player.velocity.y += PLAYER_ACCEL;
+        else{
+            if(Math.abs(player.velocity.y) < PLAYER_SLOWDOWN) player.velocity.y = 0.0f;
+            else if(player.velocity.y < 0.0f) player.velocity.y -= -PLAYER_SLOWDOWN;
+            else player.velocity.y -= PLAYER_SLOWDOWN;
+        }
+    }
+
+    private void highScoreCalc()
+    {
+        //todo
     }
 
     //

@@ -27,10 +27,10 @@ public class ParticleSpray implements Renderable
     private int color;
     private float diameter;
     private double speed;
-    private int life;
-    private int lived;
+    private int life; // Maximum frame life count
+    private int lived; // How many frames this object has been 'alive'
     private Random rng;
-    private boolean hasFired;
+    private boolean hasFired; // If the initial generation sequence has fired for this particle
 
     private float[][] velocities; // [0] and [1] contain current velocities for each particle, [2] and [3] contain original velocities
     private RenderObject[][] particles;

@@ -11,6 +11,7 @@ public class RenderObject
 {
     // The maximum number of arguments to any render method
     private static final int MAX_ARG_LENGTH = 8;
+    public static final int INVALID_VALUE = Integer.MAX_VALUE;
 
     /**
      * Determines the type of object to render.
@@ -84,9 +85,6 @@ public class RenderObject
      * Constructs an instance of this object in {@link RenderType#IMAGE} mode.
      * @param img the image to draw
      * @param mode the image draw mode constant from {@link PApplet}.
-     * @param fColor the fill color of the drawn object
-     * @param pColor the perimeter (or 'stroke') color of the drawn object.
-     *               Set to Integer.MAX_VALUE to disable perimeter rendering entirely.
      * @param x the X-coordinate of the drawn image. Where this actually is relative to the image
      *          is dependent on the render mode.
      * @param y the X-coordinate of the drawn image. Where this actually is relative to the image
@@ -94,8 +92,8 @@ public class RenderObject
      * @param rX the size to resize the image to in the X-axis. Provide 0 or less to skip resizing in this axis.
      * @param rY the size to resize the image to in the Y-axis. Provide 0 or less to skip resizing in this axis.
      */
-    public RenderObject(PImage img, int mode, int fColor, int pColor, float x, float y, float rX, float rY){
-        this(RenderType.IMAGE, mode, fColor, pColor, x, y, rX, rY);
+    public RenderObject(PImage img, int mode, float x, float y, float rX, float rY){
+        this(RenderType.IMAGE, mode, INVALID_VALUE, INVALID_VALUE, x, y, rX, rY);
         this.img = img;
     }
 
@@ -103,7 +101,7 @@ public class RenderObject
      * Constructs an instance of this object in {@link RenderType#QUAD} mode.
      * @param fColor the fill color of the drawn object
      * @param pColor the perimeter (or 'stroke') color of the drawn object.
-     *               Set to Integer.MAX_VALUE to disable perimeter rendering entirely.
+     *               Set to INVALID_VALUE to disable perimeter rendering entirely.
      * @param x1 the 1st X-coordinate of the quadrilateral
      * @param y1 the 1nd Y-coordinate of the quadrilateral
      * @param x2 the 2nd X-coordinate of the quadrilateral
@@ -121,7 +119,7 @@ public class RenderObject
      * Constructs an instance of this object in {@link RenderType#TRI} mode.
      * @param fColor the fill color of the drawn object
      * @param pColor the perimeter (or 'stroke') color of the drawn object.
-     *               Set to Integer.MAX_VALUE to disable perimeter rendering entirely.
+     *               Set to INVALID_VALUE to disable perimeter rendering entirely.
      * @param x1 the 1st X-coordinate of the triangle
      * @param y1 the 1nd Y-coordinate of the triangle
      * @param x2 the 2nd X-coordinate of the triangle
@@ -140,7 +138,7 @@ public class RenderObject
      * @param mode the ellipse/rectangle draw mode constant from {@link PApplet}.
      * @param fColor the fill color of the drawn object
      * @param pColor the perimeter (or 'stroke') color of the drawn object.
-     *               Set to Integer.MAX_VALUE to disable perimeter rendering entirely.
+     *               Set to INVALID_VALUE to disable perimeter rendering entirely.
      * @param x the X-coordinate of the rectangle/ellipse. Where this actually is relative to the shape
      *          is dependent on the render mode.
      * @param y the Y-coordinate of the rectangle/ellipse. Where this actually is relative to the shape
@@ -155,25 +153,25 @@ public class RenderObject
     /**
      * Constructs an instance of this object in {@link RenderType#LINE} mode.
      * @param pColor the perimeter (or 'stroke') color of the drawn object.
-     *               Set to Integer.MAX_VALUE to disable perimeter rendering entirely.
+     *               Set to INVALID_VALUE to disable perimeter rendering entirely.
      * @param x1 the 1st X-coordinate of the line
      * @param y1 the 1nd Y-coordinate of the line
      * @param x2 the 2nd X-coordinate of the line
      * @param y2 the 2nd Y-coordinate of the line
      */
     public RenderObject(int pColor, float x1, float y1, float x2, float y2){
-        this(RenderType.LINE, -1, Integer.MAX_VALUE, pColor, x1, y1, x2, y2);
+        this(RenderType.LINE, -1, INVALID_VALUE, pColor, x1, y1, x2, y2);
     }
 
     /**
      * Constructs an instance of this object in {@link RenderType#POINT} mode.
      * @param pColor the perimeter (or 'stroke') color of the drawn object.
-     *               Set to Integer.MAX_VALUE to disable perimeter rendering entirely.
+     *               Set to INVALID_VALUE to disable perimeter rendering entirely.
      * @param x the X-coordinate of the point
      * @param y the Y-coordinate of the point
      */
     public RenderObject(int pColor, float x, float y){
-        this(RenderType.POINT, -1, Integer.MAX_VALUE, pColor, x, y);
+        this(RenderType.POINT, -1, INVALID_VALUE, pColor, x, y);
     }
 
     /**
@@ -181,10 +179,10 @@ public class RenderObject
      * coordinates to the current parent applet.
      * @param t the {@link RenderType type} of operation to execute
      * @param mode the draw mode of the operation. Only applies to certain render types.
-     *             If not used, set to {@code Integer.MAX_VALUE}, and it will be ignored.
+     *             If not used, set to {@code INVALID_VALUE}, and it will be ignored.
      * @param fColor the fill color of the drawn object
      * @param pColor the perimeter (or 'stroke') color of the drawn object.
-     *               Set to Integer.MAX_VALUE to disable perimeter rendering entirely.
+     *               Set to INVALID_VALUE to disable perimeter rendering entirely.
      * @param coords a list of render-dependent coordinates and sizes to be passed to the specified
      *               render method. For example, if the render type was {@link RenderType#POINT},
      *               the provided argument should be {@code (x, y)}. Arguments past the bounds of
@@ -216,9 +214,9 @@ public class RenderObject
         }
 
         // Set colors
-        if(color[0] != Integer.MAX_VALUE) parent.stroke(color[0]);
+        if(color[0] != INVALID_VALUE) parent.stroke(color[0]);
         else parent.noStroke();
-        if(color[1] != Integer.MAX_VALUE) parent.fill(color[1]);
+        if(color[1] != INVALID_VALUE) parent.fill(color[1]);
         else parent.fill(0);
 
         // Pipeline to parent applet with proper method depending on render type setting

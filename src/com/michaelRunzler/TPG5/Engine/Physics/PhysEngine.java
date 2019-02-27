@@ -75,6 +75,7 @@ public class PhysEngine implements AppletAccessor
         simulated.forEach(p -> sCollisionParity.putIfAbsent(p, new ArrayList<>()));
         simulated.forEach(p -> dCollisionParity.putIfAbsent(p, new ArrayList<>()));
 
+        // Run actual physics subroutines in sequence
         staticCollision();
         dynamicCollision();
         staticGravity();
@@ -112,18 +113,19 @@ public class PhysEngine implements AppletAccessor
     {
         for(PhysObject p : simulated)
         {
+            // Collect object data
             float[] bounds = p.getBounds();
             ArrayList<Integer> parity = sCollisionParity.get(p);
             int[] collisionAxis = new int[]{NONE, NONE}; // [0] is X, [1] is Y
 
-            // Left/right screen-edge bound
+            // Check left/right screen-edge bound
             if(bounds[0] <= 0f || bounds[2] >= parent.width) {
                 collisionAxis[0] = bounds[0] <= 0f ? LEFT : RIGHT;
                 // Only make changes to velocity if this object is not ignoring collisions for this axis
                 if(!parity.contains(collisionAxis[0])) p.velocity.x = staticCollisionCalc(p.velocity.x, staticCollisionPenalty);
             }
 
-            // Top/bottom screen-edge bound
+            // Check top/bottom screen-edge bound
             if(bounds[1] <= 0f || bounds[3] >= parent.height) {
                 collisionAxis[1] = bounds[1] <= 0f ? TOP : BOTTOM;
                 // Only make changes to velocity if this object is not ignoring collisions for this axis
@@ -133,7 +135,7 @@ public class PhysEngine implements AppletAccessor
             // Call collision listener, set flags, and log event if a collision was detected
             if(collisionAxis[0] != NONE || collisionAxis[1] != NONE)
             {
-                // Log collision
+                // Determine valid collision angles
                 String aX = "";
                 String aY = "";
                 float[] angles = new float[2];
@@ -157,15 +159,18 @@ public class PhysEngine implements AppletAccessor
                 // Call listener if collision is valid
                 if((collisionAxis[0] != NONE && !parity.contains(collisionAxis[0])) || (collisionAxis[1] != NONE && !parity.contains(collisionAxis[1])))
                 {
+                    // Calculate collision angle from collided bounds
                     float a;
                     if(collisionAxis[0] != NONE && collisionAxis[1] != NONE)
                         a = ((angles[0] + angles[1]) / 2) % 180;
                     else a = angles[0] + angles[1];
 
+                    // Pass angle to collision handler
                     p.collision(null, a);
                     ignored = false;
                 }
 
+                // Log collision
                 log.logEvent(LogEventLevel.DEBUG, String.format("Collision: %s (%1.3f, %1.3f) %s %s%s.", p.UID, bounds[0], bounds[1],
                                                                 ignored ? "ignored collision with static bound(s)" : "collided with static bound(s)",
                                                                 aX, aY));
@@ -186,7 +191,9 @@ public class PhysEngine implements AppletAccessor
     // Apply collision effects and velocity changes to objects that are colliding with each other
     private void dynamicCollision()
     {
-        // get max object w, collect bounds
+        // Run a rough collision check and pre-cull list to filter out ineligible candidates:
+
+        // Get the width of the largest simulated object and collect X-coordinates of all objects
         float maxW = 0;
         float[] xCoords = new float[simulated.size()];
         for(int i = 0; i < simulated.size(); i++)
@@ -199,7 +206,8 @@ public class PhysEngine implements AppletAccessor
             xCoords[i] = b[0];
         }
 
-        // check bounds for X-axis proximity
+        // Do a rough check of all objects against each other. If two objects are close enough to theoretically
+        // collide in the X-axis, add them to the pre-culled collision check list.
         ArrayList<PhysObject> prox = new ArrayList<>();
         for(int i = 0; i < xCoords.length; i++)
         {
@@ -207,38 +215,37 @@ public class PhysEngine implements AppletAccessor
             for (int j = 0; j < xCoords.length; j++) {
                 if(j == i) continue; // Skip comparing to itself
                 float minXComp = xCoords[j];
-                if (Math.abs(minX - minXComp) <= maxW && !prox.contains(simulated.get(i))) prox.add(simulated.get(i));
+                if (Math.abs(minX - minXComp) <= maxW){
+                    if(!prox.contains(simulated.get(i))) prox.add(simulated.get(i));
+                    if(!prox.contains(simulated.get(j))) prox.add(simulated.get(j));
+                }
             }
         }
 
-        // check detailed collision on culled candidates
+        // Check detailed collision on culled candidates. Each entry is checked against all others in the array,
+        // skipping itself and any other entries that have already had their collision maps checked (to prevent
+        // double-checking).
         boolean[] checked = new boolean[prox.size()];
         for (int i = 0; i < prox.size(); i++)
         {
             PhysObject p = prox.get(i);
             float[] b = p.getBounds();
 
+            // Check this object against all other objects in the culled array
             for (int j = 0; j < prox.size(); j++)
             {
-                if(checked[j]) continue; // skip already-checked objects
+                if(checked[j]) continue; // Skip already-checked objects
 
                 PhysObject c = prox.get(j);
                 float[] bc = c.getBounds();
 
-                // Skip checking itself
-                if(c == p) continue;
+                if(c == p) continue; // Skip checking itself
 
+                // Check bounds collision on X and Y axes, collision is occurring if both are overlapping
                 boolean collision = colliding(p.coords.x, c.coords.x, b[2] - b[0], bc[2] - bc[0])
                         && colliding(p.coords.y, c.coords.y, b[3] - b[1], bc[3] - bc[1]);
 
-                float a = -1.0f;
-                PVector tri = null;
-                if(collision){
-                    tri = PVector.sub(c.coords, p.coords);
-                    tri.normalize();
-                    a = (float)Math.toDegrees(Math.atan2(tri.y, tri.x));
-                }
-
+                // Get parity registers for both objects
                 ArrayList<PhysObject> parityS = dCollisionParity.get(p);
                 ArrayList<PhysObject> parityC = dCollisionParity.get(c);
 
@@ -249,7 +256,12 @@ public class PhysEngine implements AppletAccessor
                     continue;
                 }
 
-                // Calculate velocity change
+                // Calculate angle of collision and vector path from the coordinates of both objects
+                PVector tri = PVector.sub(c.coords, p.coords);
+                tri.normalize();
+                float a = (float)Math.toDegrees(Math.atan2(tri.y, tri.x));
+
+                // Calculate velocity change in both axes
                 float[] vX = dynamicCollisionCalc(p.velocity.x, c.velocity.x, tri.x);
                 float[] vY = dynamicCollisionCalc(p.velocity.y, c.velocity.y, tri.y);
 
@@ -259,12 +271,11 @@ public class PhysEngine implements AppletAccessor
                 // Log collision event
                 log.logEvent(LogEventLevel.DEBUG, String.format("%s between objects: %s (%1.3f, %1.3f) and %s (%1.3f, %1.3f); angle %.3f.",
                                                                 ignored ? "Ignored collision" : "Collision", p.UID, b[0], b[1], c.UID, bc[0], bc[1], a));
-                //log.logEvent(LogEventLevel.INFO, String.format("Velocity totals: %.3f, %.3f : %.3f", p.velocity.mag(), c.velocity.mag(), p.velocity.mag() + c.velocity.mag()));
 
                 // Continue to next object if parity flags are already set for this object
                 if(ignored) continue;
 
-                // Since we now know the collision is valid (since no parity flags were set), set the flags before continuing
+                // Since we now know the collision is valid (no parity flags were set), set the flags before continuing
                 parityS.add(c);
                 parityC.add(p);
 
@@ -275,7 +286,7 @@ public class PhysEngine implements AppletAccessor
                 p.velocity.y = vY[0];
                 c.velocity.y = vY[1];
 
-                // Call collision listeners on both objects, reversing the sign of the collision for the second object
+                // Call collision listeners on both objects, reversing the angle of the collision for the second object
                 p.collision(c, a);
                 c.collision(p, 360.0f - a);
             }
@@ -288,6 +299,7 @@ public class PhysEngine implements AppletAccessor
     // Update each object's velocity based on static gravity, if there is any
     private void staticGravity()
     {
+        // Simple increment operation on each object's velocity
         for(PhysObject p : simulated)
         {
             p.velocity.x += gravity.x;
@@ -300,7 +312,8 @@ public class PhysEngine implements AppletAccessor
     {
         // Run through each simulated object, comparing to every other object. Not a bidirectional comparison,
         // compared (or target) object is not modified during comparison to avoid double-modification.
-        for(PhysObject p : simulated) {
+        for(PhysObject p : simulated)
+        {
             for(PhysObject c : simulated)
             {
                 // Skip comparing to itself
@@ -310,11 +323,13 @@ public class PhysEngine implements AppletAccessor
                 float dist = p.coords.dist(c.coords);
                 float force = (dynamicGravityConstant * p.mass * c.mass)/(float)Math.pow(dist, 2);
 
+                // Normalize vector, calculate force distribution
                 PVector fVector = PVector.sub(c.coords, p.coords);
                 fVector.normalize();
                 float fX = force * fVector.x;
                 float fY = force * fVector.y;
 
+                // Apply force delta to target object
                 p.velocity.x += fX;
                 p.velocity.y += fY;
             }
@@ -338,13 +353,13 @@ public class PhysEngine implements AppletAccessor
     // Calculate velocity reversal, zero-velocity clipping, and collision penalties
     private float staticCollisionCalc(float velocity, float penalty)
     {
+        // Reverse object's velocity
         float v = velocity;
         v = -v;
-        if(Math.abs(v) <= penalty)
-            v = 0;
-        else{
-            v *= (1.0f - penalty);
-        }
+
+        // Deduct collision penalty, ensuring that zero-crossing is not allowed.
+        if(Math.abs(v) <= penalty) v = 0;
+        else v *= (1.0f - penalty);
 
         return v;
     }
@@ -356,10 +371,11 @@ public class PhysEngine implements AppletAccessor
         float[] velocities = new float[2];
         float r = Math.abs(ratio); // Ensure ratio is positive
 
-        // Transfer component velocities
+        // Store velocities to array for modification
         velocities[0] = v1;
         velocities[1] = v2;
 
+        // Calculate bidirectional transfers
         float t12 = v1 * (r * dynamicCollisionTransfer ); // energy transfer from v1 to v2
         float t21 = v2 * (r * dynamicCollisionTransfer ); // inverse
 
@@ -371,12 +387,14 @@ public class PhysEngine implements AppletAccessor
         velocities[0] -= t12;
         velocities[1] -= t21;
 
+        // Deduct penalty from collision
         velocities[0] -= (velocities[0] * dynamicCollisionPenalty);
         velocities[1] -= (velocities[1] * dynamicCollisionPenalty);
 
         return velocities;
     }
 
+    @Deprecated
     private float[] dCollisionCalcSimple(float v1, float v2, float ratio)
     {
         float[] velocities = new float[2];
@@ -389,11 +407,12 @@ public class PhysEngine implements AppletAccessor
         return velocities;
     }
 
-    /**
-     * Checks collision between two objects with the provided center coordinates and bounds.
-     */
+
+    // Checks collision between two objects with the provided center coordinates and bounds.
     private boolean colliding(float c1, float c2, float w1, float w2)
     {
+        // Check distance between the center of both objects. If the distance is less than the combined width
+        // of both objects (divided by 2), they are colliding in that axis.
         float dist = Math.abs(c1 - c2);
         float size = (w1 / 2.0f) + (w2 / 2.0f);
 
