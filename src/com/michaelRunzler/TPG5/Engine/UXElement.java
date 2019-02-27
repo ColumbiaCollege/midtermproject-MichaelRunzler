@@ -14,6 +14,13 @@ import processing.core.PVector;
  */
 public abstract class UXElement implements AppletAccessor, Renderable
 {
+    /**
+     * Pipelines user interaction data to external UI elements
+     */
+    public enum InteractionType{
+        MOUSE_HOVER, MOUSE_DOWN, MOUSE_UP, KB_DOWN, KB_UP
+    }
+
     protected PApplet parent; // Parent sketch reference
     public int BG; // Background color of this element
     public PVector pos; // Current position of this element
@@ -31,6 +38,10 @@ public abstract class UXElement implements AppletAccessor, Renderable
         pos = new PVector();
         size = new PVector();
         log = null;
+    }
+
+    public void interact(int x, int y, InteractionType type, int ID) {
+        return;
     }
 
     /**

@@ -2,13 +2,14 @@ package com.michaelRunzler.TPG5.Sketch;
 
 import com.michaelRunzler.TPG5.Engine.ConfigEngine;
 import com.michaelRunzler.TPG5.Engine.Physics.GamePhysObject;
+import com.michaelRunzler.TPG5.Engine.Physics.ParticleSpray;
 import com.michaelRunzler.TPG5.Engine.Physics.PhysEngine;
 import com.michaelRunzler.TPG5.Engine.Physics.PhysObject;
+import com.michaelRunzler.TPG5.Engine.UXEngine;
+import com.michaelRunzler.TPG5.UXE.ScoreHUD;
 import com.michaelRunzler.TPG5.Util.AppletAccessor;
-import com.michaelRunzler.TPG5.Util.CollisionEvent;
 import com.michaelRunzler.TPG5.Util.RenderObject;
 import core.CoreUtil.AUNIL.LogEventLevel;
-import core.CoreUtil.AUNIL.LogVerbosityLevel;
 import core.CoreUtil.AUNIL.XLoggerInterpreter;
 import processing.core.PApplet;
 import processing.core.PVector;
@@ -18,29 +19,39 @@ import java.util.HashMap;
 
 public class SketchMain extends PApplet
 {
+    // Color constants
     public final int BG_COLOR = color(0);
     public final int AI_COLOR = color(180, 20, 255);
     public final int PLAYER_COLOR = color(255, 128, 0);
+
+    // Sizing and speed constants
     public final float OBJECT_SIZE = 0.05f;
     public final float AI_START_OFFSET = 100.0f;
     public final float PLAYER_SLOWDOWN = 0.05f;
-    public final float PLAYER_ACCEL = 0.20f;
-    public final float AI_ACCELERATION = 0.40f;
-    public final int AI_DISENTANGLE_THRESHOLD = 30;
+    public final float PLAYER_ACCEL = 0.30f;
+    public final float AI_ACCELERATION = 0.25f;
+    public final float AI_SPEED_CAP = 25.0f;
+
+    // Names and UIDs
     public final String PLAYER_NAME = "player_";
     public final String AI_NAME = "AIObj_";
 
     // Instance field for cross-class access to PApplet methods
     private static PApplet instance;
 
+    // State storage
     private HashMap<Integer, Boolean> pressedKeys;
     private HashMap<Integer, Boolean> pressedMouseButtons;
+
+    // Engines and interfaces
     private XLoggerInterpreter log;
     private PhysEngine physics;
     private ConfigEngine cfg;
+    private UXEngine uxe;
+    private ScoreHUD score;
     private GamePhysObject player;
     private GamePhysObject[] AIs;
-    private int[] framesSinceLastCollision;
+    private ParticleSpray[] death;
 
     //
     // SETUP
@@ -61,28 +72,20 @@ public class SketchMain extends PApplet
         // Initialize instance variables
         pressedKeys = new HashMap<>();
         pressedMouseButtons = new HashMap<>();
+        death = new ParticleSpray[2];
 
         // Initialize engines
         physics = new PhysEngine();
         cfg = new ConfigEngine();
+        score = new ScoreHUD(0, 0);
 
         // Add AI objects
         ArrayList<PhysObject> obj = physics.getSimObjectsMutable();
         AIs = new GamePhysObject[2];
-        framesSinceLastCollision = new int[AIs.length];
         for(int i = 0; i < AIs.length; i++)
         {
             GamePhysObject gp = new GamePhysObject(200 * (i + 1), 100, AI_COLOR, height * OBJECT_SIZE);
             gp.UID = AI_NAME + i;
-            final int ID = i;
-
-            gp.addCollisionCallback((caller, collided) -> {
-                if(collided == null) return;
-                if(framesSinceLastCollision[ID] < AI_DISENTANGLE_THRESHOLD)
-                    track(caller, collided, -(AI_ACCELERATION * 8));
-                framesSinceLastCollision[ID] = 0;
-            });
-
             AIs[i] = gp;
             obj.add(gp);
         }
@@ -90,14 +93,25 @@ public class SketchMain extends PApplet
         // Add player-controlled object
         player = new GamePhysObject(300, 100, PLAYER_COLOR, height * OBJECT_SIZE);
         player.UID = PLAYER_NAME + 0;
+
         player.addCollisionCallback((caller, collided) -> {
-            if(collided != null && collided.UID.contains(AI_NAME)) setScene();
+            // If the player is colliding with an AI object:
+            if(collided != null && collided.UID.contains(AI_NAME)){
+                // Add death particle effect handlers to the register and reset the scene/score counter
+                death[0] = new ParticleSpray(player.coords.x, player.coords.y, 90.0f, 900.0f, PLAYER_COLOR, ParticleSpray.STANDARD_DIAMETER, 40, 5.0f, 60);
+                death[1] = new ParticleSpray(player.coords.x, player.coords.y, 90.0f, 270.0f, PLAYER_COLOR, ParticleSpray.STANDARD_DIAMETER, 40, 5.0f, 60);
+                setScene();
+                score.reset();
+            }
         });
 
         obj.add(player);
+
+        // Set constants for the physics engine
         physics.dynamicGravityConstant = 0.0f;
         physics.dynamicCollisionPenalty = 0.25f;
         physics.staticCollisionPenalty = 0.50f;
+        physics.dynamicCollisionTransfer = 0.75f;
 
         setScene();
 
@@ -113,14 +127,22 @@ public class SketchMain extends PApplet
         background(0);
 
         // Render AI and player objects
-        for (int i = 0; i < AIs.length; i++) {
-            GamePhysObject gp = AIs[i];
-            framesSinceLastCollision[i] ++;
-            for (RenderObject ro : gp.render()) ro.render(this);
-        }
-
+        for (GamePhysObject gp : AIs) for (RenderObject ro : gp.render()) ro.render(this);
         for(RenderObject ro : player.render()) ro.render(this);
 
+        // Render death particle effects, remove dead effects from the registry
+        for (int i = 0; i < death.length; i++) {
+            ParticleSpray ps = death[i];
+            if (ps != null) {
+                for(RenderObject ro : ps.render()) ro.render(this);
+                if (ps.isDead()) death[i] = null;
+            }
+        }
+
+        // Render UI elements
+        for(RenderObject ro : score.render()) ro.render(this);
+
+        // Accept input and calculate 'friction' slowdown for horizontal axis
         if(keyHeld('A')) player.velocity.x += -PLAYER_ACCEL;
         else if(keyHeld('D')) player.velocity.x += PLAYER_ACCEL;
         else{
@@ -129,6 +151,7 @@ public class SketchMain extends PApplet
             else player.velocity.x -= PLAYER_SLOWDOWN;
         }
 
+        // Accept input and calculate 'friction' slowdown for vertical axis
         if(keyHeld('W')) player.velocity.y += -PLAYER_ACCEL;
         else if(keyHeld('S')) player.velocity.y += PLAYER_ACCEL;
         else{
@@ -137,14 +160,23 @@ public class SketchMain extends PApplet
             else player.velocity.y -= PLAYER_SLOWDOWN;
         }
 
-        //todo temporary
-        if(keyHeld('R')) setScene();
-
+        // Calculate 'AI' object tracking and velocity calculation
         for(PhysObject p : AIs) {
             track(p, player, AI_ACCELERATION);
+
+            if(Math.abs(p.velocity.x + p.velocity.y) > AI_SPEED_CAP)
+            {
+                // Limit the combined velocity of the two objects to below the threshold
+                log.logEvent(LogEventLevel.DEBUG, String.format("Limited speed of object %s, (%.3f, %.3f)", p.UID, p.velocity.x, p.velocity.y));
+                PVector f = new PVector(p.velocity.x, p.velocity.y);
+                f.normalize();
+                p.velocity.x = AI_SPEED_CAP * f.x;
+                p.velocity.y = AI_SPEED_CAP * f.y;
+                log.logEvent(String.format("Limited speed to (%.3f, %.3f); (%.3f, %.3f)", f.x, f.y, p.velocity.x, p.velocity.y));
+            }
             for(PhysObject c : AIs){
                 if(p == c) continue;
-                track(p, c, AI_ACCELERATION / 2);
+                track(p, c, -AI_ACCELERATION / 4);
             }
         }
 
@@ -177,7 +209,7 @@ public class SketchMain extends PApplet
         background(0);
         for(int i = 0; i < AIs.length; i++)
         {
-            // Reset object
+            // Reset objects
             GamePhysObject gp = AIs[i];
             gp.clearTrail();
             gp.velocity.x = 0;
@@ -204,17 +236,11 @@ public class SketchMain extends PApplet
         // Skip comparing to itself
         if(tracker == tracked) return;
 
-        //float dist = tracker.coords.dist(tracked.coords);
-        //float force = trackForce * (dist / width);
-        float force = trackForce;
-
+        // Compute relative vector value and apply velocity across that vector
         PVector fVector = PVector.sub(tracked.coords, tracker.coords);
         fVector.normalize();
-        float fX = force * fVector.x;
-        float fY = force * fVector.y;
-
-        fX *= force;
-        fY *= force;
+        float fX = trackForce * fVector.x;
+        float fY = trackForce * fVector.y;
 
         tracker.velocity.x += fX;
         tracker.velocity.y += fY;

@@ -62,13 +62,13 @@ public class RenderObject
     /**
      * Constructs an instance of this object in {@link RenderType#TEXT} mode.
      * @param text the text to draw
-     * @param mode the text alignment constant from
+     * @param mode the text render alignment constant from {@link PApplet}
      * @param alignX horizontal alignment constant from {@link PApplet}. Set to -1 to not use alignment in this axis.
      * @param alignY vertical alignment constant from {@link PApplet}. Set to -1 to not use alignment in this axis.
      * @param fColor color for the drawn text
-     * @param x X-coordinate for the text box. Where this actually is relative to the image
+     * @param x X-coordinate for the text box. Where this actually is relative to the text
      *          is dependent on the render mode.
-     * @param y Y-coordinate for the text box. Where this actually is relative to the image
+     * @param y Y-coordinate for the text box. Where this actually is relative to the text
      *          is dependent on the render mode.
      * @param w limiting factor for width of the text box. Set this to -1 to not set a limit.
      * @param h limiting factor for height of the text box. Set this to -1 to not set a limit.

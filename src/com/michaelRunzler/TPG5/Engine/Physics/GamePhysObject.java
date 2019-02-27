@@ -162,14 +162,8 @@ public class GamePhysObject extends PhysObject
     {
         super.collision(collided, a);
 
-        // Calculate origin point based on collision axis
-        float[] bounds = this.getBounds();
-        float cX = this.coords.x;
-        float cY = this.coords.y;
-        //todo calculate origin point from angle
-
         // Construct and add particle system to particle register
-        particles.add(new ParticleSpray(cX, cY, 45.0f, a, this.color, ParticleSpray.STANDARD_DIAMETER, 10, 3.0f, 60));
+        particles.add(new ParticleSpray(this.coords.x, this.coords.y, 45.0f, a, this.color, ParticleSpray.STANDARD_DIAMETER, 10, 3.0f, 60));
     }
 
     @Override
