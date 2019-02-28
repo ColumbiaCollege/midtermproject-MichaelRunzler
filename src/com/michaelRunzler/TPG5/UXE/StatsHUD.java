@@ -50,25 +50,7 @@ public class StatsHUD extends UXElement
         while(gen2 == gen);
 
         t2 = I18N.getString(Locale.ENGLISH, I18N.UI_TAUNT_MASTER + gen2);
-
-        // Attempt to grab stats from JSON index, fall back to default values (0) if an error occurs
-        if(config != null)
-        {
-            try {
-                // Grab death counter
-                totalDeaths = Integer.parseInt(config.index.getElementByName(ConfigKeys.KEY_SUB_PERSISTENCE).getSubElementByName(ConfigKeys.KEY_DEATH_TOTAL).getDeQuotedValue());
-
-                // Grab high score table and parse to find highest score
-                ARKJsonElement[] values = config.index.getElementByName(ConfigKeys.KEY_SUB_PERSISTENCE).getSubElementByName(ConfigKeys.KEY_HIGH_SCORES).getSubElements();
-                for(ARKJsonElement j : values){
-                    long v = Long.parseLong(j.getDeQuotedValue());
-                    if(v > highScore) highScore = v;
-                }
-            } catch (NumberFormatException | NullPointerException e) {
-                // Report to the log if an error occurs
-                log.logEvent(LogEventLevel.WARNING, "Could not load persistence data from config.");
-            }
-        }
+        updateStatsFromCfg();
     }
 
     public void countSessionDeath() {
@@ -82,6 +64,29 @@ public class StatsHUD extends UXElement
 
     public int getTotalDeaths() {
         return totalDeaths;
+    }
+
+    public void updateStatsFromCfg()
+    {
+        // Attempt to grab stats from JSON index, fall back to default values (0) if an error occurs
+        if(config != null)
+        {
+            try {
+                // Grab death counter if it has not already been loaded
+                totalDeaths = Integer.parseInt(config.index.getElementByName(ConfigKeys.KEY_SUB_PERSISTENCE).getSubElementByName(ConfigKeys.KEY_DEATH_TOTAL).getDeQuotedValue());
+                totalDeaths += sessionDeaths;
+
+                // Grab high score table and parse to find highest score
+                ARKJsonElement[] values = config.index.getElementByName(ConfigKeys.KEY_SUB_PERSISTENCE).getSubElementByName(ConfigKeys.KEY_HIGH_SCORES).getSubElements();
+                for(ARKJsonElement j : values){
+                    long v = Long.parseLong(j.getDeQuotedValue());
+                    if(v > highScore) highScore = v;
+                }
+            } catch (NumberFormatException | NullPointerException e) {
+                // Report to the log if an error occurs
+                log.logEvent(LogEventLevel.WARNING, "Could not load persistence data from config.");
+            }
+        }
     }
 
     @Override

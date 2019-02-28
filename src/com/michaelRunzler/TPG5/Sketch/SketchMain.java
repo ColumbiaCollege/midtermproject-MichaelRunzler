@@ -8,9 +8,7 @@ import com.michaelRunzler.TPG5.Engine.Physics.PhysObject;
 import com.michaelRunzler.TPG5.Engine.UXEngine;
 import com.michaelRunzler.TPG5.UXE.ScoreHUD;
 import com.michaelRunzler.TPG5.UXE.StatsHUD;
-import com.michaelRunzler.TPG5.Util.AppletAccessor;
-import com.michaelRunzler.TPG5.Util.ConfigKeys;
-import com.michaelRunzler.TPG5.Util.RenderObject;
+import com.michaelRunzler.TPG5.Util.*;
 import core.CoreUtil.ARKJsonParser.ARKJsonElement;
 import core.CoreUtil.AUNIL.LogEventLevel;
 import core.CoreUtil.AUNIL.XLoggerInterpreter;
@@ -18,8 +16,8 @@ import processing.core.PApplet;
 import processing.core.PImage;
 import processing.core.PVector;
 
-import java.util.ArrayList;
-import java.util.HashMap;
+import javax.swing.*;
+import java.util.*;
 
 public class SketchMain extends PApplet
 {
@@ -35,6 +33,8 @@ public class SketchMain extends PApplet
     public final float PLAYER_ACCEL = 0.30f;
     public final float AI_ACCELERATION = 0.25f;
     public final float AI_SPEED_CAP = 25.0f;
+    public final int AI_BOOST_INTERVAL = 120;
+    public final int AI_BOOST_MAG = 10;
 
     // Names and UIDs
     public final String PLAYER_NAME = "player_";
@@ -47,6 +47,8 @@ public class SketchMain extends PApplet
     private HashMap<Integer, Boolean> pressedKeys;
     private HashMap<Integer, Boolean> pressedMouseButtons;
     private PImage BG;
+    private int framesSinceBoost;
+    private Random boostGenerator;
 
     // Engines and interfaces
     private XLoggerInterpreter log;
@@ -79,6 +81,8 @@ public class SketchMain extends PApplet
         pressedKeys = new HashMap<>();
         pressedMouseButtons = new HashMap<>();
         death = new ParticleSpray[2];
+        framesSinceBoost = 0;
+        boostGenerator = new Random(System.currentTimeMillis());
 
         // Initialize engines
         physics = new PhysEngine();
@@ -107,7 +111,8 @@ public class SketchMain extends PApplet
         player = new GamePhysObject(300, 100, PLAYER_COLOR, height * OBJECT_SIZE);
         player.UID = PLAYER_NAME + 0;
 
-        player.addCollisionCallback((caller, collided) -> {
+        player.addCollisionCallback((caller, collided) ->
+        {
             // If the player is colliding with an AI object:
             if(collided != null && collided.UID.contains(AI_NAME)){
                 // Add death particle effect handlers to the register and reset the scene/score counter
@@ -140,6 +145,7 @@ public class SketchMain extends PApplet
     public void draw()
     {
         background(0);
+        framesSinceBoost ++;
 
         // Render AI and player objects
         for (GamePhysObject gp : AIs) for (RenderObject ro : gp.render()) ro.render(this);
@@ -178,6 +184,12 @@ public class SketchMain extends PApplet
                 if(p == c) continue;
                 track(p, c, -AI_ACCELERATION / 4);
             }
+
+            // Randomly boost towards the player once in a while
+            if(framesSinceBoost >= AI_BOOST_INTERVAL) {
+                track(p, player, AI_ACCELERATION * (float) boostGenerator.nextInt(AI_BOOST_MAG));
+                framesSinceBoost = 0;
+            }
         }
 
         playerInput();
@@ -202,21 +214,17 @@ public class SketchMain extends PApplet
 
     public void exit()
     {
-        // Search for existing death counter entry, load it if it is found
-        ARKJsonElement js = new ARKJsonElement(ConfigKeys.KEY_DEATH_TOTAL, false, "0");
+        // Search for existing death counter entry, update with new value if found
+        ARKJsonElement js = new ARKJsonElement(ConfigKeys.KEY_DEATH_TOTAL, false, stats.getTotalDeaths() + "");
         ARKJsonElement[] subElements = cfg.index.getElementByName(ConfigKeys.KEY_SUB_PERSISTENCE).getSubElements();
-        int index = 0;
-        for (int i = 0; i < subElements.length; i++) {
+
+        for(int i = 0; i < subElements.length; i++) {
             ARKJsonElement se = subElements[i];
-            if(se.getName().equals(ConfigKeys.KEY_DEATH_TOTAL)){
-                index = i;
-                js = se;
+            if (se.getName().equals(ConfigKeys.KEY_DEATH_TOTAL)) {
+                subElements[i] = js;
                 break;
             }
         }
-
-        js = new ARKJsonElement(js.getName(), false, stats.getTotalDeaths() + "");
-        cfg.index.getElementByName(ConfigKeys.KEY_SUB_PERSISTENCE).getSubElements()[index] = js;
 
         // Save config to file and then call sketch exit routine
         cfg.save();
@@ -294,7 +302,36 @@ public class SketchMain extends PApplet
 
     private void highScoreCalc()
     {
-        //todo
+        // Request name from user
+        String name = JOptionPane.showInputDialog(I18N.getString(Locale.ENGLISH, I18N.DIALOG_NAME_ENTRY), "Player");
+
+        // Reset key hold and mouse hold entries to prevent accidental input
+
+
+        try {
+            // Retrieve scores from config
+            ARKJsonElement[] scores = cfg.index.getElementByName(ConfigKeys.KEY_SUB_PERSISTENCE).getSubElementByName(ConfigKeys.KEY_HIGH_SCORES).getSubElements();
+            ARKJsonElement[] names = cfg.index.getElementByName(ConfigKeys.KEY_SUB_PERSISTENCE).getSubElementByName(ConfigKeys.KEY_HIGH_SCORE_NAMES).getSubElements();
+
+            // Read and parse values from score index, store new entry
+            ScorePair[] values = new ScorePair[scores.length + 1];
+            for(int i = 0; i < scores.length; i++) values[i] = new ScorePair(Long.parseLong(scores[i].getDeQuotedValue()), names[i].getDeQuotedValue());
+            values[values.length - 1] = new ScorePair(score.value(), name == null ? "N/A" : name);
+
+            // Sort array and drop lowest value
+            ArrayList<ScorePair> sorted = new ArrayList<>(Arrays.asList(values));
+            sorted.sort(Comparator.comparingLong(o -> o.key));
+
+            // Store sorted results back to master index
+            for(int i = scores.length; i > 0; i--){
+                scores[scores.length - i] = new ARKJsonElement(null, false, "" + sorted.get(i).key);
+                names[names.length - i] = new ARKJsonElement(null, false, sorted.get(i).value);
+            }
+
+            stats.updateStatsFromCfg();
+        } catch (NumberFormatException | NullPointerException e) {
+            log.logEvent(LogEventLevel.WARNING, "Unable to write high-score value to registry.");
+        }
     }
 
     //

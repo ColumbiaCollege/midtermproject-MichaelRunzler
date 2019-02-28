@@ -55,12 +55,16 @@ public class ConfigEngine
         ARKJsonElement[] scores = new ARKJsonElement[10];
         for(int i = 0; i < scores.length; i++) scores[i] = new ARKJsonElement(null, false, "0");
 
+        ARKJsonElement[] scoreNames = new ARKJsonElement[scores.length];
+        for(int i = 0; i < scoreNames.length; i++) scoreNames[i] = new ARKJsonElement(null, false, "N/A");
+
         ARKJsonElement highScores = new ARKJsonElement(KEY_HIGH_SCORES, true, null, scores);
+        ARKJsonElement highScoreNames = new ARKJsonElement(KEY_HIGH_SCORE_NAMES, true, null, scoreNames);
         ARKJsonElement totalDeaths = new ARKJsonElement(KEY_DEATH_TOTAL, false, "0");
 
         ARKJsonElement difficulty = new ARKJsonElement(KEY_DIFFICULTY, false, "0");
 
-        ARKJsonElement persist = new ARKJsonElement(KEY_SUB_PERSISTENCE, false, null, highScores, totalDeaths);
+        ARKJsonElement persist = new ARKJsonElement(KEY_SUB_PERSISTENCE, false, null, highScores, highScoreNames, totalDeaths);
         ARKJsonElement config = new ARKJsonElement(KEY_SUB_CONFIG, false, null, difficulty);
 
         index.getElementMap().add(persist);

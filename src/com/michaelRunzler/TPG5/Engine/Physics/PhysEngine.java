@@ -176,6 +176,9 @@ public class PhysEngine implements AppletAccessor
                     // Pass angle to collision handler
                     p.collision(null, a);
                     ignored = false;
+                }else{
+                    // If a collision was detected, but ignored due to parity, ensure that the objects remain within the simulation area
+                    //todo repeated collision with bound phases through it
                 }
 
                 // Log collision

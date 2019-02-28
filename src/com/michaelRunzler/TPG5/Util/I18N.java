@@ -12,14 +12,19 @@ public class I18N
 
     // String ID constants
     public static final String UI_SCORE_PREFIX = "uScorePrx";
+
     public static final String UI_MENU_ENTRY_START = "uMenuStart";
     public static final String UI_MENU_ENTRY_OPTIONS = "uMenuOption";
     public static final String UI_MENU_ENTRY_EXIT = "uMenuExit";
+
     public static final String UI_SESSIONDEATH_PREFIX = "uSDeathPrx";
     public static final String UI_GLOBALDEATH_PREFIX = "uGDeathPrx";
     public static final String UI_HIGHSCORE_PREFIX = "uHighScorePrx";
     public static final String UI_SESSIONDEATH_SUFFIX = "uSDeathSuffix";
     public static final String UI_GLOBALDEATH_SUFFIX = "uGDeathSuffix";
+
+    public static final String DIALOG_NAME_ENTRY = "dEnterName";
+
     public static final String UI_TAUNT_MASTER = "uDeathTauntSuffix_";
     public static final String[] genTaunt = new String[]{"How pathetic.", "How?!", "Git gud.", "Try harder.", "Try Roblox instead.", "Wow.", "I... what?"};
 
@@ -39,6 +44,9 @@ public class I18N
         addEntry(Locale.ENGLISH, UI_MENU_ENTRY_START, "Start!");
         addEntry(Locale.ENGLISH, UI_MENU_ENTRY_OPTIONS, "Settings");
         addEntry(Locale.ENGLISH, UI_MENU_ENTRY_EXIT, "Exit");
+
+        // Dialogs
+        addEntry(Locale.ENGLISH, DIALOG_NAME_ENTRY, "Enter name:");
 
         // Generated lines
         for (int i = 0; i < genTaunt.length; i++) {
