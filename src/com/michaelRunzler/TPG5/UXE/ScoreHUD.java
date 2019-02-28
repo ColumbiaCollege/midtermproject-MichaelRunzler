@@ -2,6 +2,7 @@ package com.michaelRunzler.TPG5.UXE;
 
 import com.michaelRunzler.TPG5.Engine.UXElement;
 import com.michaelRunzler.TPG5.Util.I18N;
+import com.michaelRunzler.TPG5.Util.InteractionType;
 import com.michaelRunzler.TPG5.Util.RenderObject;
 import core.CoreUtil.AUNIL.XLoggerInterpreter;
 import processing.core.PApplet;
@@ -123,5 +124,9 @@ public class ScoreHUD extends UXElement
         }
 
         return new double[]{calcScore, ID};
+    }
+
+    @Override
+    public void interact(int x, int y, InteractionType type, int ID) {
     }
 }

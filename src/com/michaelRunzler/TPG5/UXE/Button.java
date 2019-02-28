@@ -2,6 +2,7 @@ package com.michaelRunzler.TPG5.UXE;
 
 import com.michaelRunzler.TPG5.Engine.UXElement;
 import com.michaelRunzler.TPG5.Util.InteractEvent;
+import com.michaelRunzler.TPG5.Util.InteractionType;
 import com.michaelRunzler.TPG5.Util.RenderObject;
 import processing.core.PApplet;
 import processing.core.PImage;
@@ -66,9 +67,17 @@ public class Button extends UXElement
         this.BGImage = BGImage;
     }
 
+    public void setText(String newText){
+        if(newText != null)
+            this.text = newText;
+    }
+
     @Override
-    public void interact(int x, int y, InteractionType type, int ID) {
-        if(this.action != null) this.action.action(x, y, type, ID);
+    public void interact(int x, int y, InteractionType type, int ID)
+    {
+        // Check bounds of action event if it is a mouse click, then pass event to action event handler
+        if(this.action != null && (type != InteractionType.MOUSE_DOWN || (x <= this.pos.x + this.size.x && x >= this.pos.x
+                && y <= this.pos.y + this.size.y && y >= this.pos.y))) this.action.action(x, y, type, ID);
     }
 
     @Override

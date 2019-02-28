@@ -146,21 +146,31 @@ public class PhysEngine implements AppletAccessor
                 // Determine valid collision angles
                 String aX = "";
                 String aY = "";
+                float outOfBoundX = Integer.MIN_VALUE;
+                float outOfBoundY = Integer.MIN_VALUE;
                 float[] angles = new float[2];
                 if (collisionAxis[0] == LEFT) {
                     aX = "LEFT";
                     angles[0] = 0.0f;
+                    // If the object is out of bounds in the -X direction, limit its X value
+                    outOfBoundX = bounds[0] < 0.0f ? (bounds[2] - bounds[0]) / 2 : outOfBoundX;
                 } else if (collisionAxis[0] == RIGHT) {
                     aY = "RIGHT";
                     angles[0] = 180.0f;
+                    // If the object is out of bounds in the +X direction, limit its X value
+                    outOfBoundX = bounds[3] > parent.width ? parent.width - ((bounds[2] - bounds[0]) / 2) : outOfBoundX;
                 }
 
                 if (collisionAxis[1] == TOP) {
                     aY = "TOP";
                     angles[1] = 90.0f;
+                    // If the object is out of bounds in the -Y direction, limit its Y value
+                    outOfBoundY = bounds[1] < 0.0f ? (bounds[3] - bounds[1]) / 2 : outOfBoundY;
                 } else if (collisionAxis[1] == BOTTOM) {
                     aY = "BOTTOM";
                     angles[1] = 270.0f;
+                    // If the object is out of bounds in the +Y direction, limit its Y value
+                    outOfBoundY = bounds[3] > parent.height ? parent.height - ((bounds[3] - bounds[1]) / 2) : outOfBoundY;
                 }
 
                 boolean ignored = true;
@@ -178,7 +188,9 @@ public class PhysEngine implements AppletAccessor
                     ignored = false;
                 }else{
                     // If a collision was detected, but ignored due to parity, ensure that the objects remain within the simulation area
-                    //todo repeated collision with bound phases through it
+                    // by bounding their X and Y axis values to the edges of the screen.
+                    if(outOfBoundX != Integer.MIN_VALUE) p.coords.x = outOfBoundX + Math.signum(outOfBoundX);
+                    if(outOfBoundY != Integer.MIN_VALUE) p.coords.y = outOfBoundY + Math.signum(outOfBoundY);
                 }
 
                 // Log collision

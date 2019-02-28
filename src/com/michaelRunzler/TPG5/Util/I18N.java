@@ -16,6 +16,12 @@ public class I18N
     public static final String UI_MENU_ENTRY_START = "uMenuStart";
     public static final String UI_MENU_ENTRY_OPTIONS = "uMenuOption";
     public static final String UI_MENU_ENTRY_EXIT = "uMenuExit";
+    public static final String UI_MENU_TITLE = "uMenuSplashTitle";
+
+    public static final String UI_OPTIONS_MENU_TITLE = "uOptionsTitle";
+
+    public static final String UI_GAME_OVER_RETURN = "uGOMenuReturn";
+    public static final String UI_GAME_OVER_RESTART = "uGOMenuRestart";
 
     public static final String UI_SESSIONDEATH_PREFIX = "uSDeathPrx";
     public static final String UI_GLOBALDEATH_PREFIX = "uGDeathPrx";
@@ -27,6 +33,9 @@ public class I18N
 
     public static final String UI_TAUNT_MASTER = "uDeathTauntSuffix_";
     public static final String[] genTaunt = new String[]{"How pathetic.", "How?!", "Git gud.", "Try harder.", "Try Roblox instead.", "Wow.", "I... what?"};
+
+    public static final String UI_GAME_OVER_TITLE_MASTER = "uDeathGOTitle_";
+    public static final String[] genGOTitle = new String[]{"Game over.", "You lose!", "Try again.", "Oops.", "Nice one.", "So close...", "CURSES.", "#$%*@!", "DEAD.", "Game over man, game over!"};
 
     static{
         // Initialize dictionary table and add initial entries
@@ -44,14 +53,25 @@ public class I18N
         addEntry(Locale.ENGLISH, UI_MENU_ENTRY_START, "Start!");
         addEntry(Locale.ENGLISH, UI_MENU_ENTRY_OPTIONS, "Settings");
         addEntry(Locale.ENGLISH, UI_MENU_ENTRY_EXIT, "Exit");
+        addEntry(Locale.ENGLISH, UI_MENU_TITLE, "2½ Body Problem");
+
+        // Options menu
+        addEntry(Locale.ENGLISH, UI_OPTIONS_MENU_TITLE, "Game Settings");
+
+        // Game-over menu
+        addEntry(Locale.ENGLISH, UI_GAME_OVER_RETURN, "Return to Main");
+        addEntry(Locale.ENGLISH, UI_GAME_OVER_RESTART, "Restart!");
 
         // Dialogs
         addEntry(Locale.ENGLISH, DIALOG_NAME_ENTRY, "Enter name:");
 
         // Generated lines
         for (int i = 0; i < genTaunt.length; i++) {
-            String s = genTaunt[i];
             addEntry(Locale.ENGLISH, UI_TAUNT_MASTER + i, genTaunt[i]);
+        }
+
+        for(int i = 0; i < genGOTitle.length; i++){
+            addEntry(Locale.ENGLISH, UI_GAME_OVER_TITLE_MASTER + i, genGOTitle[i]);
         }
     }
 

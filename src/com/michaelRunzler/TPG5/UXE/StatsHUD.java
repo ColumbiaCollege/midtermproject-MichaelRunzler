@@ -4,6 +4,7 @@ import com.michaelRunzler.TPG5.Engine.ConfigEngine;
 import com.michaelRunzler.TPG5.Engine.UXElement;
 import com.michaelRunzler.TPG5.Util.ConfigKeys;
 import com.michaelRunzler.TPG5.Util.I18N;
+import com.michaelRunzler.TPG5.Util.InteractionType;
 import com.michaelRunzler.TPG5.Util.RenderObject;
 import core.CoreUtil.ARKJsonParser.ARKJsonElement;
 import core.CoreUtil.AUNIL.LogEventLevel;
@@ -114,5 +115,9 @@ public class StatsHUD extends UXElement
                 super.pos.x, super.pos.y + (lineHeight * 2), -1, lineHeight);
 
         return new RenderObject[]{sd, td, hs};
+    }
+
+    @Override
+    public void interact(int x, int y, InteractionType type, int ID) {
     }
 }
