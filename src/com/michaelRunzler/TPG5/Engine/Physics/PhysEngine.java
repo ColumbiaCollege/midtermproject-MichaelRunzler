@@ -104,6 +104,14 @@ public class PhysEngine implements AppletAccessor
         return this.simulated;
     }
 
+    /**
+     * Resets the collision check registers for all objects.
+     */
+    public void reset(){
+        for(PhysObject p : simulated) dCollisionParity.put(p, new ArrayList<>());
+        for(PhysObject p : simulated) sCollisionParity.put(p, new ArrayList<>());
+    }
+
     //
     // TICK SUBROUTINES
     //

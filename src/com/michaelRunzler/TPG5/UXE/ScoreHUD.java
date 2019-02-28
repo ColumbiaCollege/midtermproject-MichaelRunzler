@@ -20,6 +20,7 @@ public class ScoreHUD extends UXElement
 
     public ScoreHUD(float x, float y)
     {
+        super();
         log = new XLoggerInterpreter("Scoring System");
         super.pos.x = x;
         super.pos.y = y;
@@ -66,13 +67,19 @@ public class ScoreHUD extends UXElement
 
         // Compile and pipeline the finished score display
         parent.textSize(24);
-        String comp = String.format("%s%6.2f%s", I18N.getString(Locale.ENGLISH, I18N.UI_SCORE_PREFIX), calcScore[0], getDecimalMultiplier((int)calcScore[1]));
+        String comp = String.format("%s %6.2f%s", I18N.getString(Locale.ENGLISH, I18N.UI_SCORE_PREFIX), calcScore[0], getDecimalMultiplier((int)calcScore[1]));
         RenderObject ro = new RenderObject(comp, PApplet.CORNER, PApplet.LEFT, PApplet.TOP,
                 parent.color(255), this.pos.x, this.pos.y, -1, -1);
         return new RenderObject[]{ro};
     }
 
-    private String getDecimalMultiplier(int pow)
+    public static String truncatedValue(long score)
+    {
+        double[] ts = getTruncatedScore(score);
+        return String.format("%6.2f%s", ts[0], getDecimalMultiplier((int)ts[1]));
+    }
+
+    private static String getDecimalMultiplier(int pow)
     {
         switch (pow)
         {
@@ -96,7 +103,7 @@ public class ScoreHUD extends UXElement
     }
 
     // [0] is score, [1] is multiplier ID
-    private double[] getTruncatedScore(long score)
+    private static double[] getTruncatedScore(long score)
     {
         // Calculate truncated score and multiplier number
         double calcScore = score;

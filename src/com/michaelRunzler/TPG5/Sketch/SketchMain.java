@@ -7,8 +7,11 @@ import com.michaelRunzler.TPG5.Engine.Physics.PhysEngine;
 import com.michaelRunzler.TPG5.Engine.Physics.PhysObject;
 import com.michaelRunzler.TPG5.Engine.UXEngine;
 import com.michaelRunzler.TPG5.UXE.ScoreHUD;
+import com.michaelRunzler.TPG5.UXE.StatsHUD;
 import com.michaelRunzler.TPG5.Util.AppletAccessor;
+import com.michaelRunzler.TPG5.Util.ConfigKeys;
 import com.michaelRunzler.TPG5.Util.RenderObject;
+import core.CoreUtil.ARKJsonParser.ARKJsonElement;
 import core.CoreUtil.AUNIL.LogEventLevel;
 import core.CoreUtil.AUNIL.XLoggerInterpreter;
 import processing.core.PApplet;
@@ -31,7 +34,7 @@ public class SketchMain extends PApplet
     public final float PLAYER_SLOWDOWN = 0.05f;
     public final float PLAYER_ACCEL = 0.30f;
     public final float AI_ACCELERATION = 0.25f;
-    public final float AI_SPEED_CAP = 20.0f;
+    public final float AI_SPEED_CAP = 25.0f;
 
     // Names and UIDs
     public final String PLAYER_NAME = "player_";
@@ -51,6 +54,7 @@ public class SketchMain extends PApplet
     private ConfigEngine cfg;
     private UXEngine uxe;
     private ScoreHUD score;
+    private StatsHUD stats;
     private GamePhysObject player;
     private GamePhysObject[] AIs;
     private ParticleSpray[] death;
@@ -81,6 +85,13 @@ public class SketchMain extends PApplet
         cfg = new ConfigEngine();
         score = new ScoreHUD(0, 0);
 
+        // Attempt to load config. If load fails, load defaults instead.
+        boolean exists  = cfg.load();
+        if(!exists) cfg.loadDefaults();
+        //cfg.loadDefaults();
+
+        stats = new StatsHUD(width, 0, cfg);
+
         // Add AI objects
         ArrayList<PhysObject> obj = physics.getSimObjectsMutable();
         AIs = new GamePhysObject[2];
@@ -105,6 +116,7 @@ public class SketchMain extends PApplet
                 highScoreCalc();
                 setScene();
                 score.reset();
+                stats.countSessionDeath();
             }
         });
 
@@ -144,6 +156,7 @@ public class SketchMain extends PApplet
 
         // Render UI elements
         for(RenderObject ro : score.render()) ro.render(this);
+        for(RenderObject ro : stats.render()) ro.render(this);
 
         // Calculate 'AI' object tracking and velocity calculation
         for(PhysObject p : AIs)
@@ -187,6 +200,29 @@ public class SketchMain extends PApplet
         pressedKeys.put(keyCode, false);
     }
 
+    public void exit()
+    {
+        // Search for existing death counter entry, load it if it is found
+        ARKJsonElement js = new ARKJsonElement(ConfigKeys.KEY_DEATH_TOTAL, false, "0");
+        ARKJsonElement[] subElements = cfg.index.getElementByName(ConfigKeys.KEY_SUB_PERSISTENCE).getSubElements();
+        int index = 0;
+        for (int i = 0; i < subElements.length; i++) {
+            ARKJsonElement se = subElements[i];
+            if(se.getName().equals(ConfigKeys.KEY_DEATH_TOTAL)){
+                index = i;
+                js = se;
+                break;
+            }
+        }
+
+        js = new ARKJsonElement(js.getName(), false, stats.getTotalDeaths() + "");
+        cfg.index.getElementByName(ConfigKeys.KEY_SUB_PERSISTENCE).getSubElements()[index] = js;
+
+        // Save config to file and then call sketch exit routine
+        cfg.save();
+        super.exit();
+    }
+
     //
     // SUBROUTINES
     //
@@ -195,6 +231,7 @@ public class SketchMain extends PApplet
     private void setScene()
     {
         background(0);
+        physics.reset();
         for(int i = 0; i < AIs.length; i++)
         {
             // Reset objects

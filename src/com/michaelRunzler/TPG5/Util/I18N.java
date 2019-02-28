@@ -15,15 +15,36 @@ public class I18N
     public static final String UI_MENU_ENTRY_START = "uMenuStart";
     public static final String UI_MENU_ENTRY_OPTIONS = "uMenuOption";
     public static final String UI_MENU_ENTRY_EXIT = "uMenuExit";
+    public static final String UI_SESSIONDEATH_PREFIX = "uSDeathPrx";
+    public static final String UI_GLOBALDEATH_PREFIX = "uGDeathPrx";
+    public static final String UI_HIGHSCORE_PREFIX = "uHighScorePrx";
+    public static final String UI_SESSIONDEATH_SUFFIX = "uSDeathSuffix";
+    public static final String UI_GLOBALDEATH_SUFFIX = "uGDeathSuffix";
+    public static final String UI_TAUNT_MASTER = "uDeathTauntSuffix_";
+    public static final String[] genTaunt = new String[]{"How pathetic.", "How?!", "Git gud.", "Try harder.", "Try Roblox instead.", "Wow.", "I... what?"};
 
     static{
         // Initialize dictionary table and add initial entries
         dict = new HashMap<>();
 
-        addEntry(Locale.ENGLISH, UI_SCORE_PREFIX, "Score: ");
+        // IG HUD
+        addEntry(Locale.ENGLISH, UI_SCORE_PREFIX, "Score:");
+        addEntry(Locale.ENGLISH, UI_SESSIONDEATH_PREFIX, "You've died");
+        addEntry(Locale.ENGLISH, UI_GLOBALDEATH_PREFIX, "You've died");
+        addEntry(Locale.ENGLISH, UI_HIGHSCORE_PREFIX, "Highest Score:");
+        addEntry(Locale.ENGLISH, UI_SESSIONDEATH_SUFFIX, "times this session.");
+        addEntry(Locale.ENGLISH, UI_GLOBALDEATH_SUFFIX, "times in total.");
+
+        // Main menu
         addEntry(Locale.ENGLISH, UI_MENU_ENTRY_START, "Start!");
         addEntry(Locale.ENGLISH, UI_MENU_ENTRY_OPTIONS, "Settings");
         addEntry(Locale.ENGLISH, UI_MENU_ENTRY_EXIT, "Exit");
+
+        // Generated lines
+        for (int i = 0; i < genTaunt.length; i++) {
+            String s = genTaunt[i];
+            addEntry(Locale.ENGLISH, UI_TAUNT_MASTER + i, genTaunt[i]);
+        }
     }
 
     /**
