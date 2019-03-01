@@ -16,11 +16,11 @@ import static com.michaelRunzler.TPG5.Util.RenderObject.INVALID_VALUE;
  */
 public class Button extends UXElement
 {
-    private String text;
-    private PImage BGImage;
-    private InteractEvent action;
-    private int tColor;
-    private int bColor;
+    protected String text;
+    protected PImage BGImage;
+    protected InteractEvent action;
+    protected int tColor;
+    protected int bColor;
 
     /**
      * Standard constructor.
@@ -91,7 +91,7 @@ public class Button extends UXElement
 
         // Generate solid-color background and/or border depending on color values
         if(BGImage == null || (bColor != Integer.MIN_VALUE))
-            b = new RenderObject(true, PApplet.CORNER, super.BG, bColor, super.pos.x, super.pos.y, super.size.x, super.size.y);
+            b = new RenderObject(PApplet.CORNER, super.BG, bColor, super.pos.x, super.pos.y, super.size.x, super.size.y, 6.0f);
 
         // Generate image background if one was provided
         if(BGImage != null)

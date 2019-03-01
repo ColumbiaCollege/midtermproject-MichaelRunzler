@@ -30,7 +30,7 @@ public class UXEngine implements AppletAccessor, Renderable, Interactable
         }
 
         queue[queue.length - 1] = new RenderObject[staticRenderable.size()];
-        len++;
+        len += staticRenderable.size();
         for(int i = 0; i < staticRenderable.size(); i++){
             queue[queue.length - 1][i] = staticRenderable.get(i);
         }
@@ -43,11 +43,6 @@ public class UXEngine implements AppletAccessor, Renderable, Interactable
         }
 
         return retV;
-    }
-
-    public void addStaticRenderObject(RenderObject ro){
-        if(ro != null)
-            this.staticRenderable.add(ro);
     }
 
     public void interact(int x, int y, InteractionType type, int ID)

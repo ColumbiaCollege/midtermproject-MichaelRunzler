@@ -5,11 +5,11 @@ import com.michaelRunzler.TPG5.Engine.Physics.GamePhysObject;
 import com.michaelRunzler.TPG5.Engine.Physics.ParticleSpray;
 import com.michaelRunzler.TPG5.Engine.Physics.PhysEngine;
 import com.michaelRunzler.TPG5.Engine.Physics.PhysObject;
-import com.michaelRunzler.TPG5.Engine.UXElement;
 import com.michaelRunzler.TPG5.Engine.UXEngine;
 import com.michaelRunzler.TPG5.UXE.Button;
 import com.michaelRunzler.TPG5.UXE.ScoreHUD;
 import com.michaelRunzler.TPG5.UXE.StatsHUD;
+import com.michaelRunzler.TPG5.UXE.Switch;
 import com.michaelRunzler.TPG5.Util.*;
 import core.CoreUtil.ARKJsonParser.ARKJsonElement;
 import core.CoreUtil.AUNIL.LogEventLevel;
@@ -20,6 +20,7 @@ import processing.core.PVector;
 import processing.event.KeyEvent;
 
 import javax.swing.*;
+import java.net.URISyntaxException;
 import java.util.*;
 
 public class SketchMain extends PApplet
@@ -29,13 +30,15 @@ public class SketchMain extends PApplet
     }
 
     // Color constants
-    public final int BG_COLOR = color(0);
+    public final int BG_COLOR = color(0, 0, 32);
+    public final int BG_LINE_COLOR = color(0, 255, 255);
     public final int AI_COLOR = color(180, 20, 255);
     public final int PLAYER_COLOR = color(255, 128, 0);
-    public final int GAME_OVER_FILTER = color(65, 64, 64, 192);
-    public final int BUTTON_BG_COLOR = color(0, 128, 255);
-    public final int BUTTON_BORDER_COLOR = color(0, 64, 128);
-    public final int UI_TEXT_COLOR = color(255, 0, 255);
+    public final int GAME_OVER_FILTER = color(65, 64, 64, 224);
+    public final int BUTTON_BG_COLOR = color(0, 32, 128);
+    public final int BUTTON_BORDER_COLOR = color(0, 128, 128);
+    public final int UI_TEXT_COLOR = color(176, 0, 255);
+    public final int UI_BUTTON_TEXT_COLOR = color(255);
 
     // Sizing and speed constants
     public final float OBJECT_SIZE = 0.05f;
@@ -45,7 +48,7 @@ public class SketchMain extends PApplet
     public final float AI_ACCELERATION = 0.25f;
     public final float AI_SPEED_CAP = 25.0f;
     public final int AI_BOOST_INTERVAL = 120;
-    public final int AI_BOOST_MAG = 10;
+    public final int AI_BOOST_MAG = 9;
     public final float BUTTON_WIDTH_FACTOR = 0.20f;
     public final float BUTTON_HEIGHT_FACTOR = 0.05f;
     public final float BUTTON_SPACING_FACTOR = 0.025f;
@@ -61,13 +64,18 @@ public class SketchMain extends PApplet
     private HashMap<Integer, Boolean> pressedKeys;
     private HashMap<Integer, Boolean> pressedMouseButtons;
     private HashMap<UIState, UXEngine> stateInputMap;
+    private HashMap<Switch, String> configOptions;
+    private RenderObject[][] highScoreTable;
     private PImage BG;
+    private PImage logo;
     private int framesSinceBoost;
     private Random boostGenerator;
     private String lastHSName;
     private UIState state;
     private RenderObject goText;
     private boolean generatedGOText;
+    private boolean updatedOptionStates;
+    private RenderObject lastScore;
 
     // Engines and interfaces
     private XLoggerInterpreter log;
@@ -92,8 +100,6 @@ public class SketchMain extends PApplet
 
     public void setup()
     {
-        background(BG_COLOR);
-
         // Initialize logging system
         log = new XLoggerInterpreter("Main Applet");
         log.logEvent("Initialization started at T+" + System.currentTimeMillis() + "z.");
@@ -102,12 +108,22 @@ public class SketchMain extends PApplet
         pressedKeys = new HashMap<>();
         pressedMouseButtons = new HashMap<>();
         stateInputMap = new HashMap<>();
+        configOptions = new HashMap<>();
+        highScoreTable = new RenderObject[10][2];
         death = new ParticleSpray[2];
         framesSinceBoost = 0;
         boostGenerator = new Random(System.currentTimeMillis());
         lastHSName = null;
         state = UIState.IDLE;
         generatedGOText = false;
+        updatedOptionStates = false;
+        lastScore = null;
+        try {
+            logo = loadImage(Thread.currentThread().getContextClassLoader().getResource("com/michaelRunzler/TPG5/Sketch/data/ark.png").toURI().getPath().substring(1));
+        } catch (URISyntaxException | NullPointerException e) {
+            log.logEvent(LogEventLevel.WARNING, "Could not load logo image.");
+            logo = null;
+        }
 
         // Initialize engines
         physics = new PhysEngine();
@@ -147,6 +163,7 @@ public class SketchMain extends PApplet
                 death[0] = new ParticleSpray(player.coords.x, player.coords.y, 90.0f, 900.0f, PLAYER_COLOR, ParticleSpray.STANDARD_DIAMETER, 40, 5.0f, 60);
                 death[1] = new ParticleSpray(player.coords.x, player.coords.y, 90.0f, 270.0f, PLAYER_COLOR, ParticleSpray.STANDARD_DIAMETER, 40, 5.0f, 60);
                 highScoreCalc();
+                lastScore.text = I18N.getString(Locale.ENGLISH, I18N.UI_GAME_OVER_LAST_SCORE) + " " + score.truncatedValue();
                 score.reset();
                 stats.countSessionDeath();
                 setScene();
@@ -163,6 +180,9 @@ public class SketchMain extends PApplet
 
         // Delegate to UI setup method
         UISetup();
+
+        // Generate background grid
+        genBackground();
 
         // Set up scene and enter main menu
         setScene();
@@ -182,10 +202,12 @@ public class SketchMain extends PApplet
             case IDLE:
                 break;
             case MAIN_MENU:
+                image(BG, 0, 0);
                 renderSim();
                 mainMenu();
                 break;
             case OPTIONS:
+                image(BG, 0, 0);
                 optionsMenu();
                 break;
             case IN_GAME:
@@ -193,6 +215,7 @@ public class SketchMain extends PApplet
                 renderSim();
                 break;
             case GAME_OVER:
+                image(BG, 0, 0);
                 renderSim();
                 gameOver();
                 break;
@@ -200,6 +223,7 @@ public class SketchMain extends PApplet
 
         // Flag generated game-over text field as invalid and regenerate on next render pass
         if(state != UIState.GAME_OVER) generatedGOText = false;
+        if(state != UIState.OPTIONS) updatedOptionStates = false;
     }
 
     public void mousePressed(){
@@ -252,36 +276,37 @@ public class SketchMain extends PApplet
     // Run physics for the game
     private void gameSim()
     {
-        background(0);
+        image(BG, 0, 0);
         framesSinceBoost ++;
 
         // Render score counter
         for(RenderObject ro : score.render()) ro.render(this);
 
         // Calculate 'AI' object tracking and velocity calculation
+        float multiplier = loadConfigValue(ConfigKeys.KEY_DIFFICULTY) ? 1.5f : 1.0f;
         for(PhysObject p : AIs)
         {
             // Track towards player object
-            track(p, player, AI_ACCELERATION);
+            track(p, player, AI_ACCELERATION * multiplier);
 
-            if(Math.abs(p.velocity.x + p.velocity.y) > AI_SPEED_CAP)
+            if(Math.abs(p.velocity.x + p.velocity.y) > AI_SPEED_CAP * multiplier)
             {
                 // Limit the combined velocity of the two axes to below the threshold
                 PVector f = new PVector(p.velocity.x, p.velocity.y);
                 f.normalize();
-                p.velocity.x = AI_SPEED_CAP * f.x;
-                p.velocity.y = AI_SPEED_CAP * f.y;
+                p.velocity.x = (AI_SPEED_CAP * multiplier) * f.x;
+                p.velocity.y = (AI_SPEED_CAP * multiplier) * f.y;
             }
 
             // Track away from other AI objects
             for(PhysObject c : AIs){
                 if(p == c) continue;
-                track(p, c, -AI_ACCELERATION / 4);
+                track(p, c, -(AI_ACCELERATION * multiplier) / 4);
             }
 
             // Randomly boost towards the player once in a while
-            if(framesSinceBoost >= AI_BOOST_INTERVAL) {
-                track(p, player, AI_ACCELERATION * (float) boostGenerator.nextInt(AI_BOOST_MAG));
+            if(framesSinceBoost >= AI_BOOST_INTERVAL / (boostGenerator.nextInt(AI_BOOST_MAG) + 1)) {
+                track(p, player, AI_ACCELERATION * multiplier);
                 framesSinceBoost = 0;
             }
         }
@@ -318,6 +343,7 @@ public class SketchMain extends PApplet
         fill(GAME_OVER_FILTER);
         noStroke();
         rect(0, 0, width, height);
+        image(logo, width - (20 + logo.width), height - (20 + logo.height));
 
         for(RenderObject ro : mainMenu.render()) ro.render(this);
     }
@@ -330,6 +356,13 @@ public class SketchMain extends PApplet
         fill(GAME_OVER_FILTER);
         noStroke();
         rect(0, 0, width, height);
+        image(logo, width - (20 + logo.width), height - (20 + logo.height));
+
+        // Update switch states and display menu
+        if(!updatedOptionStates) {
+            for (Switch s : configOptions.keySet()) s.setState(loadConfigValue(configOptions.get(s)));
+            updatedOptionStates = true;
+        }
 
         for(RenderObject ro : optionsMenu.render()) ro.render(this);
     }
@@ -343,20 +376,45 @@ public class SketchMain extends PApplet
         noStroke();
         rect(0, 0, width, height);
 
+        String[] compiled = new String[10];
+
         // Generate new title text
         if(!generatedGOText) {
             goText.text = I18N.getString(Locale.ENGLISH, I18N.UI_GAME_OVER_TITLE_MASTER + new Random().nextInt(I18N.genGOTitle.length));
+
+            // Parse high scores
+            try {
+                ARKJsonElement[] scores = cfg.index.getElementByName(ConfigKeys.KEY_SUB_PERSISTENCE).getSubElementByName(ConfigKeys.KEY_HIGH_SCORES).getSubElements();
+                ARKJsonElement[] scoreNames = cfg.index.getElementByName(ConfigKeys.KEY_SUB_PERSISTENCE).getSubElementByName(ConfigKeys.KEY_HIGH_SCORE_NAMES).getSubElements();
+                for (int i = 0; i < scores.length; i++)
+                    compiled[i] = String.format("%-7s : %s", ScoreHUD.truncatedValue(Long.parseLong(scores[i].getDeQuotedValue())), scoreNames[i].getDeQuotedValue());
+            } catch (NumberFormatException | NullPointerException e) {
+                log.logEvent("Unable to parse high score table.");
+                return;
+            }
+
             generatedGOText = true;
         }
 
         // Draw menu entries
         for(RenderObject ro : gameOver.render()) ro.render(this);
+
+        // Draw high-score table
+        for(int i = 0; i < highScoreTable.length; i++)
+        {
+            // Update high score table render entries if they have changed and are valid
+            if(compiled[i] != null) highScoreTable[i][0].text = compiled[i];
+
+            // Render table entries
+            highScoreTable[i][0].render(this);
+            highScoreTable[i][1].render(this);
+        }
     }
 
     @SuppressWarnings("IntegerDivisionInFloatingPointContext")
     private void setScene()
     {
-        background(0);
+        image(BG, 0, 0);
         physics.reset();
         framesSinceBoost = 0;
         for(int i = 0; i < AIs.length; i++)
@@ -425,7 +483,8 @@ public class SketchMain extends PApplet
     private void highScoreCalc()
     {
         // Request name from user, autofill with last player name if there was one entered
-        String name = JOptionPane.showInputDialog(I18N.getString(Locale.ENGLISH, I18N.DIALOG_NAME_ENTRY), lastHSName == null ? "Player" : lastHSName);
+        String name = null;
+        if(loadConfigValue(ConfigKeys.KEY_NAME_ENTRY)) name = JOptionPane.showInputDialog(I18N.getString(Locale.ENGLISH, I18N.DIALOG_NAME_ENTRY), lastHSName == null ? "Player" : lastHSName);
         if(name != null) lastHSName = name;
 
         // Reset key hold and mouse hold entries to prevent accidental input; trick API into thinking that the keys have
@@ -460,6 +519,7 @@ public class SketchMain extends PApplet
         }
     }
 
+    // Set up UI elements and engines
     private void UISetup()
     {
         // Add button elements to UX engines
@@ -467,90 +527,168 @@ public class SketchMain extends PApplet
         float buttonH = height * BUTTON_HEIGHT_FACTOR;
         float buttonS = height * BUTTON_SPACING_FACTOR;
         float startX = (height / 2.0f - buttonW / 2.0f);
+        
+        float[] specs = new float[]{startX, (buttonH + buttonS * 2), buttonW, buttonH};
 
         //
         // Main menu
         //
 
-        float currentY = (buttonH + buttonS * 2);
-        RenderObject mainText = new RenderObject(I18N.getString(Locale.ENGLISH, I18N.UI_MENU_TITLE), CENTER, CENTER, CENTER,
-                UI_TEXT_COLOR, startX + (buttonW / 2), currentY, -1, -1);
-        currentY = width / 2.0f;
+        mainMenu.staticRenderable.add(new RenderObject(I18N.getString(Locale.ENGLISH, I18N.UI_MENU_TITLE), CENTER, 48, CENTER, CENTER,
+                UI_TEXT_COLOR, startX + (buttonW / 2), specs[1], -1, -1));
+        specs[1] = width / 2.0f;
 
-        Button start = new Button(startX, currentY, buttonW, buttonH, BUTTON_BG_COLOR, color(0), BUTTON_BORDER_COLOR,
-                I18N.getString(Locale.ENGLISH, I18N.UI_MENU_ENTRY_START), (x, y, type, ID) -> {
+        mainMenu.managed.add(buildButton(specs, I18N.UI_MENU_ENTRY_START, (x, y, type, ID) -> {
             if(type == InteractionType.MOUSE_UP || (type == InteractionType.KB_DOWN && (ID == ENTER || ID == ' ')))
                 setState(UIState.IN_GAME);
-        });
-        currentY += (buttonH + buttonS);
+        }));
+        specs[1] += buttonH + buttonS;
 
-        Button settings = new Button(startX, currentY, buttonW, buttonH, BUTTON_BG_COLOR, color(0), BUTTON_BORDER_COLOR,
-                I18N.getString(Locale.ENGLISH, I18N.UI_MENU_ENTRY_OPTIONS), (x, y, type, ID) -> {
-            if(type == InteractionType.MOUSE_UP)
-                setState(UIState.OPTIONS);
-        });
-        currentY += (buttonH + buttonS);
+        mainMenu.managed.add(buildButton(specs, I18N.UI_MENU_ENTRY_OPTIONS, (x, y, type, ID) -> {
+            if(type == InteractionType.MOUSE_UP) setState(UIState.OPTIONS);
+        }));
+        specs[1] += buttonH + buttonS;
 
-        Button exit = new Button(startX, currentY, buttonW, buttonH, BUTTON_BG_COLOR, color(0), BUTTON_BORDER_COLOR,
-                I18N.getString(Locale.ENGLISH, I18N.UI_MENU_ENTRY_EXIT), (x, y, type, ID) -> {
-            if(type == InteractionType.MOUSE_UP)
-                this.exit();
-        });
-
-        mainMenu.managed.add(start);
-        mainMenu.managed.add(settings);
-        mainMenu.managed.add(exit);
-        mainMenu.staticRenderable.add(mainText);
+        mainMenu.managed.add(buildButton(specs, I18N.UI_MENU_ENTRY_EXIT, (x, y, type, ID) -> {
+            if(type == InteractionType.MOUSE_UP) this.exit();
+        }));
 
         //
         // Options menu
         //
 
-        currentY = width - (buttonH + buttonS);
-        Button backToMain = new Button(startX, currentY, buttonW, buttonH, BUTTON_BG_COLOR, color(0), BUTTON_BORDER_COLOR,
-                I18N.getString(Locale.ENGLISH, I18N.UI_GAME_OVER_RETURN), (x, y, type, ID) -> {
-            if(type == InteractionType.MOUSE_UP)
-                setState(UIState.MAIN_MENU);
-        });
-        currentY = buttonH + buttonS;
+        specs[1] = buttonH + buttonS;
+        optionsMenu.staticRenderable.add(new RenderObject(I18N.getString(Locale.ENGLISH, I18N.UI_OPTIONS_MENU_TITLE), CENTER,
+                36, CENTER, CENTER, UI_TEXT_COLOR, startX + (buttonW / 2), specs[1], -1, -1));
 
-        RenderObject optionsText = new RenderObject(I18N.getString(Locale.ENGLISH, I18N.UI_OPTIONS_MENU_TITLE), CENTER, CENTER, CENTER,
-                UI_TEXT_COLOR, startX + (buttonW / 2), currentY, -1, -1);
+        Switch tmp;
+        specs[1] += buttonH + buttonS;
+        specs[2] = buttonW * 1.5f;
+        specs[0] -= buttonW * 0.25;
+        tmp = buildConfigSwitch(specs, I18N.UI_OPTIONS_NAME_ENTRY, ConfigKeys.KEY_NAME_ENTRY);
+        optionsMenu.managed.add(tmp);
+        configOptions.put(tmp, ConfigKeys.KEY_NAME_ENTRY);
 
-        optionsMenu.managed.add(backToMain);
-        optionsMenu.staticRenderable.add(optionsText);
+        specs[1] += buttonH + buttonS;
+        tmp = buildConfigSwitch(specs, I18N.UI_OPTIONS_DIFFICULTY, ConfigKeys.KEY_DIFFICULTY);
+        optionsMenu.managed.add(tmp);
+        configOptions.put(tmp, ConfigKeys.KEY_DIFFICULTY);
+
+        specs[0] = startX;
+        specs[1] += buttonH + buttonS;
+        specs[2] = buttonW;
+        optionsMenu.managed.add(buildButton(specs, I18N.UI_OPTIONS_RESET, (x, y, type, ID) -> {
+            if(type == InteractionType.MOUSE_UP){
+                int res = JOptionPane.showConfirmDialog(null, I18N.getString(Locale.ENGLISH, I18N.DIALOG_RESET), I18N.getString(Locale.ENGLISH, I18N.DIALOG_RESET_TITLE), JOptionPane.YES_NO_OPTION);
+                if(res == 0) {
+                    cfg.loadDefaults();
+                    JOptionPane.showMessageDialog(null, I18N.getString(Locale.ENGLISH, I18N.DIALOG_RESET_SUCCESS));
+                    stats.updateStatsFromCfg();
+                    state = UIState.MAIN_MENU;
+                }
+            }
+        }));
+
+        specs[1] = height - (buttonH + buttonS);
+        optionsMenu.managed.add(buildButton(specs, I18N.UI_GAME_OVER_RETURN, (x, y, type, ID) -> {
+            if(type == InteractionType.MOUSE_UP) setState(UIState.MAIN_MENU);
+        }));
 
         //
         // Game-over screen
         //
 
-        currentY = (buttonH + buttonS * 2.0f);
+        specs[1] = (buttonH + buttonS * 3.0f);
 
-        goText = new RenderObject("", CENTER, CENTER, CENTER, UI_TEXT_COLOR, startX + (buttonW / 2.0f), currentY, -1, -1);
-        currentY += buttonH * 2.0f;
-
-        Button restart = new Button(startX, currentY, buttonW, buttonH, BUTTON_BG_COLOR, color(0), BUTTON_BORDER_COLOR,
-                I18N.getString(Locale.ENGLISH, I18N.UI_GAME_OVER_RESTART), (x, y, type, ID) -> {
-            if(type == InteractionType.MOUSE_UP || (type == InteractionType.KB_DOWN && (ID == ENTER || ID == ' ')))
-                setState(UIState.IN_GAME);
-        });
-        currentY += (buttonH + buttonS);
-
-        Button main = new Button(startX, currentY, buttonW, buttonH, BUTTON_BG_COLOR, color(0), BUTTON_BORDER_COLOR,
-                I18N.getString(Locale.ENGLISH, I18N.UI_GAME_OVER_RETURN), (x, y, type, ID) -> {
-            if(type.equals(InteractionType.MOUSE_UP))
-                setState(UIState.MAIN_MENU);
-        });
-
-        //todo add high-score table
-
-        gameOver.managed.add(main);
-        gameOver.managed.add(restart);
+        goText = new RenderObject("", CENTER, 36, CENTER, CENTER, UI_TEXT_COLOR, startX + (buttonW / 2.0f), specs[1], -1, -1);
         gameOver.staticRenderable.add(goText);
+        specs[1] += (buttonH + buttonS * 2);
+
+        lastScore = new RenderObject("", CENTER, 24, CENTER, CENTER, UI_TEXT_COLOR, startX + (buttonW / 2.0f), specs[1], -1, -1);
+        gameOver.staticRenderable.add(lastScore);
+        specs[1] += (buttonH + buttonS) * 4.0f;
+
+        gameOver.managed.add(buildButton(specs, I18N.UI_GAME_OVER_RESTART, (x, y, type, ID) -> {
+            if (type == InteractionType.MOUSE_UP || (type == InteractionType.KB_DOWN && (ID == ENTER || ID == ' ')))
+                setState(UIState.IN_GAME);
+        }));
+        specs[1] += buttonH + buttonS;
+
+        gameOver.managed.add(buildButton(specs, I18N.UI_GAME_OVER_RETURN, (x, y, type, ID) -> {
+            if(type.equals(InteractionType.MOUSE_UP)) setState(UIState.MAIN_MENU);
+        }));
+        specs[0] = buttonS;
+        specs[1] = buttonH * 2.0f;
+
+        gameOver.staticRenderable.add(new RenderObject(I18N.getString(Locale.ENGLISH, I18N.UI_GAME_OVER_HIGH_SCORE),
+                CENTER, 36, LEFT, CENTER, UI_TEXT_COLOR, specs[0], specs[1], -1, -1));
+        specs[1] += buttonH + buttonS;
+
+        for(int i = 0; i < highScoreTable.length; i++){
+            highScoreTable[i][0] = new RenderObject("", CENTER, 24, LEFT, CENTER, UI_TEXT_COLOR, specs[0], specs[1], -1, -1);
+            specs[1] += buttonS;
+            highScoreTable[i][1] = new RenderObject(UI_TEXT_COLOR, specs[0], specs[1], specs[0] + buttonW, specs[1]);
+            specs[1] += buttonS;
+        }
 
         stateInputMap.put(UIState.MAIN_MENU, mainMenu);
         stateInputMap.put(UIState.OPTIONS, optionsMenu);
         stateInputMap.put(UIState.GAME_OVER, gameOver);
+    }
+
+    private void genBackground()
+    {
+        background(BG_COLOR);
+
+        float spacing = 80.0f;
+        int fade = 8;
+        int aInterval = (255 / fade);
+
+        float p1 = width / 2.0f;
+        float p2 = width / 2.0f;
+        float alpha;
+        int diff;
+
+        int[] bgC = StaticUtils.toARGB(BG_LINE_COLOR);
+
+        while(p1 > 0.0f && p2 < width)
+        {
+            alpha = 255;
+            diff = 0;
+            while(alpha > 0){
+                stroke(bgC[1], bgC[2], bgC[3], alpha);
+                line(p1 - diff, 0, p1 - diff, height);
+                line(p1 + diff, 0, p1 + diff, height);
+                line(p2 - diff, 0, p2 - diff, height);
+                line(p2 + diff, 0, p2 + diff, height);
+                diff ++;
+                alpha -= aInterval;
+            }
+            p1 -= spacing;
+            p2 += spacing;
+        }
+
+        p1 = height / 2.0f;
+        p2 = height / 2.0f;
+
+        while(p1 > 0.0f && p2 < height)
+        {
+            alpha = 255;
+            diff = 0;
+            while(alpha > 0){
+                stroke(bgC[1], bgC[2], bgC[3], alpha);
+                line(0, p1 - diff, width, p1 - diff);
+                line(0, p1 + diff, width, p1 + diff);
+                line(0, p2 - diff, width, p2 - diff);
+                line(0, p2 + diff, width, p2 + diff);
+                diff ++;
+                alpha -= aInterval;
+            }
+            p1 -= spacing;
+            p2 += spacing;
+        }
+
+        BG = get();
     }
 
     //
@@ -578,6 +716,48 @@ public class SketchMain extends PApplet
     // State access for lambda classes
     protected void setState(UIState state){
         this.state = state;
+    }
+    
+    // Builds a default button element from the specified arguments.
+    private Button buildButton(float[] specs, String SID, InteractEvent handler){
+        return new Button(specs[0], specs[1], specs[2], specs[3], BUTTON_BG_COLOR, UI_BUTTON_TEXT_COLOR, BUTTON_BORDER_COLOR,
+                I18N.getString(Locale.ENGLISH, SID), handler);
+    }
+
+    // Builds a default config option switch from the specified arguments.
+    private Switch buildConfigSwitch(float[] specs, String SID, String configID)
+    {
+        return new Switch(specs[0], specs[1], specs[2], specs[3], BUTTON_BG_COLOR, UI_BUTTON_TEXT_COLOR,
+                BUTTON_BORDER_COLOR, I18N.getString(Locale.ENGLISH, SID), (x, y, type, ID) -> {
+            if(type == InteractionType.MOUSE_DOWN){
+                ARKJsonElement[] subs = cfg.index.getElementByName(ConfigKeys.KEY_SUB_CONFIG).getSubElements();
+                int found = -1;
+                for(int i = 0; i < subs.length; i++){
+                    if(subs[i].getName().equals(configID)){
+                        found = i;
+                        break;
+                    }
+                }
+
+                try {
+                    boolean value = Boolean.parseBoolean(subs[found].getDeQuotedValue());
+                    subs[found] = new ARKJsonElement(subs[found].getName(), false, "" + !value);
+                } catch (NumberFormatException | NullPointerException | ArrayIndexOutOfBoundsException e) {
+                    log.logEvent(LogEventLevel.ERROR, "Could not load config value for entry " + configID);
+                }
+            }
+        });
+    }
+
+    // Load a value from the config index
+    private boolean loadConfigValue(String key)
+    {
+        try{
+            return Boolean.parseBoolean(cfg.index.getElementByName(ConfigKeys.KEY_SUB_CONFIG).getSubElementByName(key).getDeQuotedValue());
+        }catch (NumberFormatException | NullPointerException e){
+            log.logEvent("Could not load config value for entry " + key);
+            return false;
+        }
     }
 
     //

@@ -78,6 +78,7 @@ public class StatsHUD extends UXElement
                 totalDeaths += sessionDeaths;
 
                 // Grab high score table and parse to find highest score
+                this.highScore = 0;
                 ARKJsonElement[] values = config.index.getElementByName(ConfigKeys.KEY_SUB_PERSISTENCE).getSubElementByName(ConfigKeys.KEY_HIGH_SCORES).getSubElements();
                 for(ARKJsonElement j : values){
                     long v = Long.parseLong(j.getDeQuotedValue());

@@ -58,6 +58,7 @@ public class RenderObject
     public float[] coords;
     public PImage img;
     public String text;
+    public int textSize;
     public int[] align; // text alignment, [0] is horizontal, [1] is vertical
 
     /**
@@ -77,6 +78,29 @@ public class RenderObject
     public RenderObject(String text, int mode, int alignX, int alignY,  int fColor, float x, float y, float w, float h){
         this(RenderType.TEXT, mode, fColor, -1, x, y, w, h);
         this.text = text;
+        this.align[0] = alignX;
+        this.align[1] = alignY;
+    }
+
+    /**
+     * Constructs an instance of this object in {@link RenderType#TEXT} mode.
+     * @param text the text to draw
+     * @param mode the text render alignment constant from {@link PApplet}
+     * @param size the size of the text in standard typographical points
+     * @param alignX horizontal alignment constant from {@link PApplet}. Set to -1 to not use alignment in this axis.
+     * @param alignY vertical alignment constant from {@link PApplet}. Set to -1 to not use alignment in this axis.
+     * @param fColor color for the drawn text
+     * @param x X-coordinate for the text box. Where this actually is relative to the text
+     *          is dependent on the render mode.
+     * @param y Y-coordinate for the text box. Where this actually is relative to the text
+     *          is dependent on the render mode.
+     * @param w limiting factor for width of the text box. Set this to -1 to not set a limit.
+     * @param h limiting factor for height of the text box. Set this to -1 to not set a limit.
+     */
+    public RenderObject(String text, int mode, int size, int alignX, int alignY,  int fColor, float x, float y, float w, float h){
+        this(RenderType.TEXT, mode, fColor, -1, x, y, w, h);
+        this.text = text;
+        this.textSize = size;
         this.align[0] = alignX;
         this.align[1] = alignY;
     }
@@ -148,6 +172,24 @@ public class RenderObject
      */
     public RenderObject(boolean isRect, int mode, int fColor, int pColor, float x, float y, float w, float h){
         this(isRect ? RenderType.RECT : RenderType.ELLIPSE, mode, fColor, pColor, x, y, w, h);
+    }
+
+    /**
+     * Constructs an instance of this object in {@link RenderType#RECT} mode.
+     * @param mode the rectangle draw mode constant from {@link PApplet}.
+     * @param fColor the fill color of the drawn object
+     * @param pColor the perimeter (or 'stroke') color of the drawn object.
+     *               Set to INVALID_VALUE to disable perimeter rendering entirely.
+     * @param x the X-coordinate of the rectangle. Where this actually is relative to the shape
+     *          is dependent on the render mode.
+     * @param y the Y-coordinate of the rectangle. Where this actually is relative to the shape
+     *          is dependent on the render mode.
+     * @param w the width of the rectangle
+     * @param h the height of the rectangle
+     * @param r the amount by which to round the edges of the rectangle
+     */
+    public RenderObject(int mode, int fColor, int pColor, float x, float y, float w, float h, float r){
+        this(RenderType.RECT, mode, fColor, pColor, x, y, w, h, r);
     }
 
     /**
@@ -230,7 +272,9 @@ public class RenderObject
                 break;
             case RECT:
                 if(mode != -1) parent.rectMode(mode);
-                parent.rect(coords[0], coords[1], coords[2], coords[3], coords[4]);
+                // Call more verbose (rounding) constructor if rounding argument is specified
+                if(coords[4] > 0) parent.rect(coords[0], coords[1], coords[2], coords[3], coords[4]);
+                else parent.rect(coords[0], coords[1], coords[2], coords[3]);
                 break;
             case ELLIPSE:
                 if(mode != -1) parent.ellipseMode(mode);
@@ -251,10 +295,14 @@ public class RenderObject
                 if(mode != -1) parent.rectMode(mode);
                 // Align (or don't) based on alignment settings
                 parent.textAlign(align[0] == -1 ? parent.LEFT : align[0], align[1] == -1 ? parent.TOP : align[1]);
+                // Set size if specified
+                int prevSize = StaticUtils.getTextSize(parent);
+                if(textSize > 0) parent.textSize(textSize);
 
                 // Confine text if confine bounds are set, otherwise just specify X,Y coordinates
                 if(coords[2] != -1 && coords[3] != -1) parent.text(text, coords[0], coords[1], coords[2], coords[3]);
                 else parent.text(text, coords[0], coords[1]);
+                parent.textSize(prevSize);
                 break;
         }
     }

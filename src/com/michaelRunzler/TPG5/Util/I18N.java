@@ -19,9 +19,14 @@ public class I18N
     public static final String UI_MENU_TITLE = "uMenuSplashTitle";
 
     public static final String UI_OPTIONS_MENU_TITLE = "uOptionsTitle";
+    public static final String UI_OPTIONS_NAME_ENTRY = "uTOptionNameEntry";
+    public static final String UI_OPTIONS_DIFFICULTY = "uTOptionDifficulty";
+    public static final String UI_OPTIONS_RESET = "uTOptionFacReset";
 
     public static final String UI_GAME_OVER_RETURN = "uGOMenuReturn";
     public static final String UI_GAME_OVER_RESTART = "uGOMenuRestart";
+    public static final String UI_GAME_OVER_HIGH_SCORE = "uGOMenuHSTitle";
+    public static final String UI_GAME_OVER_LAST_SCORE = "uGOMenuLSPrefix";
 
     public static final String UI_SESSIONDEATH_PREFIX = "uSDeathPrx";
     public static final String UI_GLOBALDEATH_PREFIX = "uGDeathPrx";
@@ -30,6 +35,9 @@ public class I18N
     public static final String UI_GLOBALDEATH_SUFFIX = "uGDeathSuffix";
 
     public static final String DIALOG_NAME_ENTRY = "dEnterName";
+    public static final String DIALOG_RESET = "dFacResetConfirm";
+    public static final String DIALOG_RESET_TITLE = "dTFacResetConfirm";
+    public static final String DIALOG_RESET_SUCCESS = "dFacResetSuccess";
 
     public static final String UI_TAUNT_MASTER = "uDeathTauntSuffix_";
     public static final String[] genTaunt = new String[]{"How pathetic.", "How?!", "Git gud.", "Try harder.", "Try Roblox instead.", "Wow.", "I... what?"};
@@ -57,13 +65,21 @@ public class I18N
 
         // Options menu
         addEntry(Locale.ENGLISH, UI_OPTIONS_MENU_TITLE, "Game Settings");
+        addEntry(Locale.ENGLISH, UI_OPTIONS_NAME_ENTRY, "Score Name Entry");
+        addEntry(Locale.ENGLISH, UI_OPTIONS_DIFFICULTY, "High Difficulty");
+        addEntry(Locale.ENGLISH, UI_OPTIONS_RESET, "Clear Config Data");
 
         // Game-over menu
         addEntry(Locale.ENGLISH, UI_GAME_OVER_RETURN, "Return to Main");
         addEntry(Locale.ENGLISH, UI_GAME_OVER_RESTART, "Restart!");
+        addEntry(Locale.ENGLISH, UI_GAME_OVER_HIGH_SCORE, "High Scores:");
+        addEntry(Locale.ENGLISH, UI_GAME_OVER_LAST_SCORE, "Score:");
 
         // Dialogs
         addEntry(Locale.ENGLISH, DIALOG_NAME_ENTRY, "Enter name:");
+        addEntry(Locale.ENGLISH, DIALOG_RESET, "This will erase all high scores and set all options back to defaults! Are you sure?");
+        addEntry(Locale.ENGLISH, DIALOG_RESET_TITLE, "WARNING");
+        addEntry(Locale.ENGLISH, DIALOG_RESET_SUCCESS, "Config reset complete.");
 
         // Generated lines
         for (int i = 0; i < genTaunt.length; i++) {

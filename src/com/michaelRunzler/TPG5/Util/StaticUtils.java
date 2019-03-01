@@ -34,4 +34,8 @@ public class StaticUtils
     public static int getStrokeColor(PApplet parent){
         return parent.recorder == null ? parent.g.strokeColor : parent.recorder.strokeColor;
     }
+
+    public static int getTextSize(PApplet parent){
+        return (int)(parent.recorder == null ? parent.g.textSize : parent.recorder.textSize);
+    }
 }
