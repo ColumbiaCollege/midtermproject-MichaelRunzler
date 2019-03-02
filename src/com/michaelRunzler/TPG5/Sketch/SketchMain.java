@@ -57,14 +57,15 @@ public class SketchMain extends PApplet
 
     // Color constants
     public final int BG_COLOR = color(0, 0, 32); // Used for background generation
-    public final int BG_LINE_COLOR = color(0, 255, 255); // Used for background generation
+    public final int BG_LINE_COLOR = color(0, 176, 176); // Used for background generation
     public final int AI_COLOR = color(180, 20, 255); // AI object main/trail color
     public final int PLAYER_COLOR = color(255, 128, 0); // Player object main/trail color
     public final int GAME_OVER_FILTER = color(65, 64, 64, 224); // Filter which is displayed over game elements while in a UI
     public final int BUTTON_BG_COLOR = color(0, 32, 128); // Background color for all UX buttons
     public final int BUTTON_BORDER_COLOR = color(0, 128, 128); // Border color for all UX buttons
     public final int UI_BUTTON_TEXT_COLOR = color(255); // Text color for all UX buttons
-    public final int UI_TEXT_COLOR = color(176, 0, 255); // Text color for all non-button UX elements
+    public final int UI_TEXT_COLOR = color(0, 192, 224, 192); // Text color for all non-button UX elements
+    public final int UI_TEXT_SHADOW_COLOR = color(160, 0, 224); // Shadow color for all non-button UX text elements
 
     // Sizing and speed constants
     public final float OBJECT_SIZE = 0.05f; // Size of game objects as a decimal percentage of window height
@@ -98,10 +99,12 @@ public class SketchMain extends PApplet
     private Random boostGenerator; // RNG used for boost interval calculation
     private String lastHSName; // Last name used for the high-score board, used to autofill the entry field
     private UIState state;
-    private RenderObject goText; // Game-over text field, regenerated on each game-over screen
+    private RenderObject[] goText; // Game-over text field, regenerated on each game-over screen
     private boolean generatedGOText; // Set to true if the game-over text field has been generated, used to stop constant regeneration
     private boolean updatedOptionStates; // Same as above, but for options screen toggle states
-    private RenderObject lastScore; // Stores the score from the last gameplay session for use in the game-over screen
+    private RenderObject[] lastScore; // Stores the score from the last gameplay session for use in the game-over screen
+    private long pendingScoreEntry; // -1 normally, stores a pending score to be stored in the high-score table
+    private boolean scoreNameEntryDelay; // Delays score name entry dialog display for one frame to allow for background UI rendering
 
     // Engines and interfaces
     private XLoggerInterpreter log;
@@ -136,15 +139,18 @@ public class SketchMain extends PApplet
         pressedMouseButtons = new HashMap<>();
         stateInputMap = new HashMap<>();
         configOptions = new HashMap<>();
-        highScoreTable = new RenderObject[10][2];
+        highScoreTable = new RenderObject[10][3];
         death = new ParticleSpray[2];
         framesSinceBoost = 0;
         boostGenerator = new Random(System.currentTimeMillis());
         lastHSName = null;
         state = UIState.IDLE;
+        goText = new RenderObject[2];
         generatedGOText = false;
         updatedOptionStates = false;
-        lastScore = null;
+        lastScore = new RenderObject[2];
+        pendingScoreEntry = -1L;
+        scoreNameEntryDelay = false;
 
         // Load logo image, default to it being invisible if it cannot be loaded
         try {
@@ -192,10 +198,13 @@ public class SketchMain extends PApplet
                 death[0] = new ParticleSpray(player.coords.x, player.coords.y, 90.0f, 900.0f, PLAYER_COLOR, ParticleSpray.STANDARD_DIAMETER, 40, 5.0f, 60);
                 death[1] = new ParticleSpray(player.coords.x, player.coords.y, 90.0f, 270.0f, PLAYER_COLOR, ParticleSpray.STANDARD_DIAMETER, 40, 5.0f, 60);
                 // Reshuffle high-score table, update last-score text, reset score counters, count death, and show death screen
-                highScoreCalc();
-                lastScore.text = I18N.getString(I18N.getCurrentLocale(), I18N.UI_GAME_OVER_LAST_SCORE) + " " + score.truncatedValue();
+                lastScore[0].text = I18N.getString(I18N.getCurrentLocale(), I18N.UI_GAME_OVER_LAST_SCORE) + " " + score.truncatedValue();
+                lastScore[1].text = lastScore[0].text;
+                pendingScoreEntry = score.value();
                 score.reset();
                 stats.countSessionDeath();
+                // Enable frame delay for name entry
+                scoreNameEntryDelay = true;
                 setScene();
             }
         });
@@ -245,6 +254,7 @@ public class SketchMain extends PApplet
                 break;
             case IN_GAME:
                 // Run physics, render background grid and game elements/effects
+                image(BG, 0, 0);
                 gameSim();
                 renderSim();
                 break;
@@ -311,7 +321,6 @@ public class SketchMain extends PApplet
     // Run physics for the game, render score counter UI
     private void gameSim()
     {
-        image(BG, 0, 0);
         framesSinceBoost ++;
 
         // Render score counter
@@ -413,20 +422,33 @@ public class SketchMain extends PApplet
 
         String[] compiled = new String[10];
 
+        // If there is a pending score entry from the last game, accept a name entry from the user if it is set to do so,
+        // and reshuffle the high score table
+        // Delay by one frame to allow death screen to render behind it
+        if(pendingScoreEntry != -1L){
+            if(scoreNameEntryDelay)
+                scoreNameEntryDelay = false;
+            else {
+                highScoreCalc();
+                pendingScoreEntry = -1L;
+
+                // Parse high scores
+                try {
+                    ARKJsonElement[] scores = cfg.index.getElementByName(ConfigKeys.KEY_SUB_PERSISTENCE).getSubElementByName(ConfigKeys.KEY_HIGH_SCORES).getSubElements();
+                    ARKJsonElement[] scoreNames = cfg.index.getElementByName(ConfigKeys.KEY_SUB_PERSISTENCE).getSubElementByName(ConfigKeys.KEY_HIGH_SCORE_NAMES).getSubElements();
+                    for (int i = 0; i < scores.length; i++)
+                        compiled[i] = String.format("%-7s : %s", ScoreHUD.truncatedValue(Long.parseLong(scores[i].getDeQuotedValue())), scoreNames[i].getDeQuotedValue());
+                } catch (NumberFormatException | NullPointerException e) {
+                    log.logEvent("Unable to parse high score table.");
+                    return;
+                }
+            }
+        }
+
         // Generate new title text
         if(!generatedGOText) {
-            goText.text = I18N.getString(I18N.getCurrentLocale(), I18N.UI_GAME_OVER_TITLE_MASTER + new Random().nextInt(I18N.genGOTitle.length));
-
-            // Parse high scores
-            try {
-                ARKJsonElement[] scores = cfg.index.getElementByName(ConfigKeys.KEY_SUB_PERSISTENCE).getSubElementByName(ConfigKeys.KEY_HIGH_SCORES).getSubElements();
-                ARKJsonElement[] scoreNames = cfg.index.getElementByName(ConfigKeys.KEY_SUB_PERSISTENCE).getSubElementByName(ConfigKeys.KEY_HIGH_SCORE_NAMES).getSubElements();
-                for (int i = 0; i < scores.length; i++)
-                    compiled[i] = String.format("%-7s : %s", ScoreHUD.truncatedValue(Long.parseLong(scores[i].getDeQuotedValue())), scoreNames[i].getDeQuotedValue());
-            } catch (NumberFormatException | NullPointerException e) {
-                log.logEvent("Unable to parse high score table.");
-                return;
-            }
+            goText[0].text = I18N.getString(I18N.getCurrentLocale(), I18N.UI_GAME_OVER_TITLE_MASTER + new Random().nextInt(I18N.genGOTitle.length));
+            goText[1].text = goText[0].text;
 
             generatedGOText = true;
         }
@@ -439,10 +461,12 @@ public class SketchMain extends PApplet
         {
             // Update high score table render entries if they have changed and are valid
             if(compiled[i] != null) highScoreTable[i][0].text = compiled[i];
+            if(compiled[i] != null) highScoreTable[i][1].text = compiled[i];
 
             // Render table entries
             highScoreTable[i][0].render(this);
             highScoreTable[i][1].render(this);
+            highScoreTable[i][2].render(this);
         }
     }
 
@@ -546,7 +570,7 @@ public class SketchMain extends PApplet
             // Read and parse values from score index, store new entry
             ScorePair[] values = new ScorePair[scores.length + 1];
             for(int i = 0; i < scores.length; i++) values[i] = new ScorePair(Long.parseLong(scores[i].getDeQuotedValue()), names[i].getDeQuotedValue());
-            values[values.length - 1] = new ScorePair(score.value(), name == null ? "N/A" : name);
+            values[values.length - 1] = new ScorePair(pendingScoreEntry, name == null ? "N/A" : name);
 
             // Sort array and drop lowest value
             ArrayList<ScorePair> sorted = new ArrayList<>(Arrays.asList(values));
@@ -582,8 +606,10 @@ public class SketchMain extends PApplet
         // Main menu
         //
 
-        mainMenu.staticRenderable.add(new RenderObject(I18N.getString(I18N.getCurrentLocale(), I18N.UI_MENU_TITLE), CENTER, 48, CENTER, CENTER,
-                UI_TEXT_COLOR, startX + (buttonW / 2), specs[1], -1, -1));
+        RenderObject mainMenuText = new RenderObject(I18N.getString(I18N.getCurrentLocale(), I18N.UI_MENU_TITLE), CENTER, 48, CENTER, CENTER,
+                UI_TEXT_COLOR, startX + (buttonW / 2), specs[1], -1, -1);
+        mainMenu.staticRenderable.add(buildDropShadow(mainMenuText));
+        mainMenu.staticRenderable.add(mainMenuText);
         specs[1] = width / 2.0f;
 
         mainMenu.managed.add(buildButton(specs, I18N.UI_MENU_ENTRY_START, (x, y, type, ID) -> {
@@ -606,8 +632,10 @@ public class SketchMain extends PApplet
         //
 
         specs[1] = buttonH + buttonS;
-        optionsMenu.staticRenderable.add(new RenderObject(I18N.getString(I18N.getCurrentLocale(), I18N.UI_OPTIONS_MENU_TITLE), CENTER,
-                36, CENTER, CENTER, UI_TEXT_COLOR, startX + (buttonW / 2), specs[1], -1, -1));
+        RenderObject optionsMenuTitle = new RenderObject(I18N.getString(I18N.getCurrentLocale(), I18N.UI_OPTIONS_MENU_TITLE), CENTER,
+                36, CENTER, CENTER, UI_TEXT_COLOR, startX + (buttonW / 2), specs[1], -1, -1);
+        optionsMenu.staticRenderable.add(buildDropShadow(optionsMenuTitle));
+        optionsMenu.staticRenderable.add(optionsMenuTitle);
 
         Switch tmp;
         specs[1] += buttonH + buttonS;
@@ -622,9 +650,9 @@ public class SketchMain extends PApplet
         optionsMenu.managed.add(tmp);
         configOptions.put(tmp, ConfigKeys.KEY_DIFFICULTY);
 
-        specs[0] = startX;
+        specs[0] = startX - (buttonW * 0.125f);
         specs[1] += buttonH + buttonS;
-        specs[2] = buttonW;
+        specs[2] = buttonW * 1.25f;
         optionsMenu.managed.add(buildButton(specs, I18N.UI_OPTIONS_RESET, (x, y, type, ID) -> {
             if(type == InteractionType.MOUSE_UP)
             {
@@ -642,7 +670,9 @@ public class SketchMain extends PApplet
             }
         }));
 
+        specs[0] = startX;
         specs[1] = height - (buttonH + buttonS);
+        specs[2] = buttonW;
         optionsMenu.managed.add(buildButton(specs, I18N.UI_GAME_OVER_RETURN, (x, y, type, ID) -> {
             if(type == InteractionType.MOUSE_UP) setState(UIState.MAIN_MENU);
         }));
@@ -653,13 +683,23 @@ public class SketchMain extends PApplet
 
         specs[1] = (buttonH + buttonS * 3.0f);
 
-        goText = new RenderObject("", CENTER, 36, CENTER, CENTER, UI_TEXT_COLOR, startX + (buttonW / 2.0f), specs[1], -1, -1);
-        gameOver.staticRenderable.add(goText);
+        goText[0] = new RenderObject("", CENTER, 36, CENTER, CENTER, UI_TEXT_COLOR, startX + (buttonW / 2.0f), specs[1], -1, -1);
+        goText[1] = buildDropShadow(goText[0]);
+        gameOver.staticRenderable.add(goText[1]);
+        gameOver.staticRenderable.add(goText[0]);
         specs[1] += (buttonH + buttonS * 2);
 
-        lastScore = new RenderObject("", CENTER, 24, CENTER, CENTER, UI_TEXT_COLOR, startX + (buttonW / 2.0f), specs[1], -1, -1);
-        gameOver.staticRenderable.add(lastScore);
-        specs[1] += (buttonH + buttonS) * 4.0f;
+        lastScore[0] = new RenderObject("", CENTER, 24, CENTER, CENTER, UI_TEXT_COLOR, startX + (buttonW / 2.0f), specs[1], -1, -1);
+        lastScore[1] = buildDropShadow(lastScore[0]);
+        gameOver.staticRenderable.add(lastScore[1]);
+        gameOver.staticRenderable.add(lastScore[0]);
+        specs[1] += (buttonH + buttonS);
+
+        RenderObject restartPrompt = new RenderObject(I18N.getString(I18N.getCurrentLocale(), I18N.UI_GAME_OVER_PROMPT),
+                CENTER, 18, LEFT, CENTER, UI_BUTTON_TEXT_COLOR, specs[0], specs[1], -1, -1);
+        gameOver.staticRenderable.add(buildDropShadow(restartPrompt));
+        gameOver.staticRenderable.add(restartPrompt);
+        specs[1] += (buttonH + buttonS) * 3.0f;
 
         gameOver.managed.add(buildButton(specs, I18N.UI_GAME_OVER_RESTART, (x, y, type, ID) -> {
             if (type == InteractionType.MOUSE_UP || (type == InteractionType.KB_DOWN && (ID == ENTER || ID == ' ')))
@@ -673,14 +713,17 @@ public class SketchMain extends PApplet
         specs[0] = buttonS;
         specs[1] = buttonH * 2.0f;
 
-        gameOver.staticRenderable.add(new RenderObject(I18N.getString(I18N.getCurrentLocale(), I18N.UI_GAME_OVER_HIGH_SCORE),
-                CENTER, 36, LEFT, CENTER, UI_TEXT_COLOR, specs[0], specs[1], -1, -1));
+        RenderObject highScoreTitle = new RenderObject(I18N.getString(I18N.getCurrentLocale(), I18N.UI_GAME_OVER_HIGH_SCORE),
+                CENTER, 36, LEFT, CENTER, UI_TEXT_COLOR, specs[0], specs[1], -1, -1);
+        gameOver.staticRenderable.add(buildDropShadow(highScoreTitle));
+        gameOver.staticRenderable.add(highScoreTitle);
         specs[1] += buttonH + buttonS;
 
         for(int i = 0; i < highScoreTable.length; i++){
-            highScoreTable[i][0] = new RenderObject("", CENTER, 24, LEFT, CENTER, UI_TEXT_COLOR, specs[0], specs[1], -1, -1);
+            highScoreTable[i][1] = new RenderObject("", CENTER, 24, LEFT, CENTER, UI_TEXT_COLOR, specs[0], specs[1], -1, -1);
+            highScoreTable[i][0] = buildDropShadow(highScoreTable[i][1]);
             specs[1] += buttonS;
-            highScoreTable[i][1] = new RenderObject(UI_TEXT_COLOR, specs[0], specs[1], specs[0] + buttonW, specs[1]);
+            highScoreTable[i][2] = new RenderObject(UI_TEXT_COLOR, specs[0], specs[1], specs[0] + buttonW, specs[1]);
             specs[1] += buttonS;
         }
 
@@ -832,6 +875,24 @@ public class SketchMain extends PApplet
                 }
             }
         });
+    }
+
+    /**
+     * Builds a 'drop-shadow'-like effect for the specified text object.
+     * This shadow is a copy of the original, but shifted left 2.5% and up 6%, using the color value
+     * specified by {@link #UI_TEXT_SHADOW_COLOR}.
+     * @param text a {@link RenderObject} with render type {@link com.michaelRunzler.TPG5.Util.RenderObject.RenderType#TEXT TEXT}.
+     */
+    public RenderObject buildDropShadow(RenderObject text)
+    {
+        // Get text height at the set text size
+        int tmpSize = StaticUtils.getTextSize(this);
+        if(text.textSize > 0) textSize(text.textSize);
+        else textSize(24);
+        float ySize = textAscent() + textDescent();
+        textSize(tmpSize);
+        return new RenderObject(text.text, text.mode, text.textSize, text.align[0], text.align[1], UI_TEXT_SHADOW_COLOR,
+                text.coords[0] - (ySize * 0.025f), text.coords[1] - (ySize * 0.06f), text.coords[2], text.coords[3]);
     }
 
     // Load a value from the config index

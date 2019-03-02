@@ -1,6 +1,7 @@
 package com.michaelRunzler.TPG5.UXE;
 
 import com.michaelRunzler.TPG5.Engine.UXElement;
+import com.michaelRunzler.TPG5.Sketch.SketchMain;
 import com.michaelRunzler.TPG5.Util.I18N;
 import com.michaelRunzler.TPG5.Util.InteractionType;
 import com.michaelRunzler.TPG5.Util.RenderObject;
@@ -90,7 +91,10 @@ public class ScoreHUD extends UXElement
         String comp = String.format("%s %6.2f%s", I18N.getString(I18N.getCurrentLocale(), I18N.UI_SCORE_PREFIX), calcScore[0], getDecimalMultiplier((int)calcScore[1]));
         RenderObject ro = new RenderObject(comp, PApplet.CORNER, PApplet.LEFT, PApplet.TOP,
                 parent.color(255), this.pos.x, this.pos.y, -1, -1);
-        return new RenderObject[]{ro};
+
+        // Build drop shadow if we're dealing with a properly initialized parent class
+        if(parent instanceof SketchMain) return new RenderObject[]{((SketchMain) parent).buildDropShadow(ro), ro};
+        else return new RenderObject[]{ro};
     }
 
     /**

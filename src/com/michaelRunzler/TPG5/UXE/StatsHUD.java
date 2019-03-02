@@ -2,6 +2,7 @@ package com.michaelRunzler.TPG5.UXE;
 
 import com.michaelRunzler.TPG5.Engine.ConfigEngine;
 import com.michaelRunzler.TPG5.Engine.UXElement;
+import com.michaelRunzler.TPG5.Sketch.SketchMain;
 import com.michaelRunzler.TPG5.Util.ConfigKeys;
 import com.michaelRunzler.TPG5.Util.I18N;
 import com.michaelRunzler.TPG5.Util.InteractionType;
@@ -142,7 +143,10 @@ public class StatsHUD extends UXElement
         RenderObject hs = new RenderObject(compHS, PApplet.CORNER, PApplet.RIGHT, PApplet.TOP, parent.color(255),
                 super.pos.x, super.pos.y + (lineHeight * 2), -1, lineHeight);
 
-        return new RenderObject[]{sd, td, hs};
+        // Build drop shadows if we're dealing with a properly initialized parent class
+        if(parent instanceof SketchMain)
+            return new RenderObject[]{((SketchMain) parent).buildDropShadow(sd), sd, ((SketchMain) parent).buildDropShadow(td), td, ((SketchMain) parent).buildDropShadow(hs), hs};
+        else return new RenderObject[]{sd, td, hs};
     }
 
     @Override

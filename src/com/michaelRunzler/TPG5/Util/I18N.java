@@ -30,6 +30,7 @@ public class I18N
     public static final String UI_GAME_OVER_RESTART = "uGOMenuRestart";
     public static final String UI_GAME_OVER_HIGH_SCORE = "uGOMenuHSTitle";
     public static final String UI_GAME_OVER_LAST_SCORE = "uGOMenuLSPrefix";
+    public static final String UI_GAME_OVER_PROMPT = "uGOMenuPressSpace";
 
     // IG HUD
     public static final String UI_SESSIONDEATH_PREFIX = "uSDeathPrx";
@@ -46,7 +47,7 @@ public class I18N
 
     // Generated lists
     public static final String UI_TAUNT_MASTER = "uDeathTauntSuffix_";
-    public static final String[] genTaunt = new String[]{"How pathetic.", "How?!", "Git gud.", "Try harder.", "Try Roblox instead.", "Wow.", "I... what?"};
+    public static final String[] genTaunt = new String[]{"How pathetic.", "How?!", "Git gud.", "Try harder.", "Try Fortnite instead.", "Wow.", "I... what?"};
 
     public static final String UI_GAME_OVER_TITLE_MASTER = "uDeathGOTitle_";
     public static final String[] genGOTitle = new String[]{"Game over.", "You lose!", "Try again.", "Oops.", "Nice one.", "So close...", "CURSES.", "#$%*@!", "DEAD.", "Game over man, game over!"};
@@ -65,13 +66,14 @@ public class I18N
         addEntry(Locale.ENGLISH, UI_OPTIONS_MENU_TITLE, "Game Settings");
         addEntry(Locale.ENGLISH, UI_OPTIONS_NAME_ENTRY, "Score Name Entry");
         addEntry(Locale.ENGLISH, UI_OPTIONS_DIFFICULTY, "High Difficulty");
-        addEntry(Locale.ENGLISH, UI_OPTIONS_RESET, "Clear Config Data");
+        addEntry(Locale.ENGLISH, UI_OPTIONS_RESET, "Clear High Scores");
 
         // Game-over menu
         addEntry(Locale.ENGLISH, UI_GAME_OVER_RETURN, "Return to Main");
         addEntry(Locale.ENGLISH, UI_GAME_OVER_RESTART, "Restart!");
         addEntry(Locale.ENGLISH, UI_GAME_OVER_HIGH_SCORE, "High Scores:");
         addEntry(Locale.ENGLISH, UI_GAME_OVER_LAST_SCORE, "Score:");
+        addEntry(Locale.ENGLISH, UI_GAME_OVER_PROMPT, "Press Space to restart!");
 
         // IG HUD
         addEntry(Locale.ENGLISH, UI_SCORE_PREFIX, "Score:");
