@@ -45,12 +45,15 @@ public class ConfigEngine
 
     /**
      * Set the config in memory back to its initial default settings.
-     * Does not affect the config on disk.
+     * Does not affect the config on disk until written with {@link #save()}.
      */
     public void loadDefaults()
     {
+        // Clear existing structural data
         index.getElementMap().clear();
         index.getArrayMap().clear();
+
+        // Initialize data elements from the bottom up
 
         ARKJsonElement[] scores = new ARKJsonElement[10];
         for(int i = 0; i < scores.length; i++) scores[i] = new ARKJsonElement(null, false, "0");
@@ -68,6 +71,7 @@ public class ConfigEngine
         ARKJsonElement persist = new ARKJsonElement(KEY_SUB_PERSISTENCE, false, null, highScores, highScoreNames, totalDeaths);
         ARKJsonElement config = new ARKJsonElement(KEY_SUB_CONFIG, false, null, difficulty, nameEntry);
 
+        // Add final head elements to structural tree
         index.getElementMap().add(persist);
         index.getElementMap().add(config);
     }

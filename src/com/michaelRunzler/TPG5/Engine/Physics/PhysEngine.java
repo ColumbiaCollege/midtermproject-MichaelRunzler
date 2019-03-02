@@ -42,6 +42,7 @@ public class PhysEngine implements AppletAccessor
      */
     public PhysEngine()
     {
+        // Initialize cross-class access and logging
         parent = SketchMain.getAccess();
         if(parent == null) throw new RuntimeException("Unable to access main sketch!");
         log = new XLoggerInterpreter("Physics Engine");
@@ -50,6 +51,7 @@ public class PhysEngine implements AppletAccessor
         log.logEvent(LogEventLevel.INFO, "Engine initializing...");
         log.logEvent("Tied to main sketch ID " + parent.toString().substring(parent.toString().lastIndexOf('@') + 1));
 
+        // Initialize instance variables and coefficients
         simulated = new ArrayList<>();
         sCollisionParity = new HashMap<>();
         dCollisionParity = new HashMap<>();
@@ -140,74 +142,75 @@ public class PhysEngine implements AppletAccessor
                 if(!parity.contains(collisionAxis[1])) p.velocity.y = staticCollisionCalc(p.velocity.y, staticCollisionPenalty);
             }
 
-            // Call collision listener, set flags, and log event if a collision was detected
-            if(collisionAxis[0] != NONE || collisionAxis[1] != NONE)
-            {
-                // Determine valid collision angles
-                String aX = "";
-                String aY = "";
-                float outOfBoundX = Integer.MIN_VALUE;
-                float outOfBoundY = Integer.MIN_VALUE;
-                float[] angles = new float[2];
-                if (collisionAxis[0] == LEFT) {
-                    aX = "LEFT";
-                    angles[0] = 0.0f;
-                    // If the object is out of bounds in the -X direction, limit its X value
-                    outOfBoundX = bounds[0] < 0.0f ? (bounds[2] - bounds[0]) / 2 : outOfBoundX;
-                } else if (collisionAxis[0] == RIGHT) {
-                    aY = "RIGHT";
-                    angles[0] = 180.0f;
-                    // If the object is out of bounds in the +X direction, limit its X value
-                    outOfBoundX = bounds[3] > parent.width ? parent.width - ((bounds[2] - bounds[0]) / 2) : outOfBoundX;
-                }
-
-                if (collisionAxis[1] == TOP) {
-                    aY = "TOP";
-                    angles[1] = 90.0f;
-                    // If the object is out of bounds in the -Y direction, limit its Y value
-                    outOfBoundY = bounds[1] < 0.0f ? (bounds[3] - bounds[1]) / 2 : outOfBoundY;
-                } else if (collisionAxis[1] == BOTTOM) {
-                    aY = "BOTTOM";
-                    angles[1] = 270.0f;
-                    // If the object is out of bounds in the +Y direction, limit its Y value
-                    outOfBoundY = bounds[3] > parent.height ? parent.height - ((bounds[3] - bounds[1]) / 2) : outOfBoundY;
-                }
-
-                boolean ignored = true;
-                // Call listener if collision is valid
-                if((collisionAxis[0] != NONE && !parity.contains(collisionAxis[0])) || (collisionAxis[1] != NONE && !parity.contains(collisionAxis[1])))
-                {
-                    // Calculate collision angle from collided bounds
-                    float a;
-                    if(collisionAxis[0] != NONE && collisionAxis[1] != NONE)
-                        a = ((angles[0] + angles[1]) / 2) % 180;
-                    else a = angles[0] + angles[1];
-
-                    // Pass angle to collision handler
-                    p.collision(null, a);
-                    ignored = false;
-                }else{
-                    // If a collision was detected, but ignored due to parity, ensure that the objects remain within the simulation area
-                    // by bounding their X and Y axis values to the edges of the screen.
-                    if(outOfBoundX != Integer.MIN_VALUE) p.coords.x = outOfBoundX + Math.signum(outOfBoundX);
-                    if(outOfBoundY != Integer.MIN_VALUE) p.coords.y = outOfBoundY + Math.signum(outOfBoundY);
-                }
-
-                // Log collision
-                log.logEvent(LogEventLevel.DEBUG, String.format("Collision: %s (%1.3f, %1.3f) %s %s%s.", p.UID, bounds[0], bounds[1],
-                                                                ignored ? "ignored collision with static bound(s)" : "collided with static bound(s)",
-                                                                aX, aY));
-
-                // Clear flag list, it will be repopulated with still-valid flags
-                parity.clear();
-
-                // Re-add any still-active collisions to the index
-                if(collisionAxis[0] != NONE) parity.add(collisionAxis[0]);
-                if(collisionAxis[1] != NONE) parity.add(collisionAxis[1]);
-            }else{
-                // Clear collision flags if no collision was detected this frame
+            // Clear collision flags if no collision was detected this frame
+            if (collisionAxis[0] == NONE && collisionAxis[1] == NONE) {
                 if(parity.size() != 0) parity.clear();
+                continue;
             }
+
+            // If a collision was detected:
+
+            // Determine valid collision angles
+            String aX = "";
+            String aY = "";
+            float outOfBoundX = Integer.MIN_VALUE;
+            float outOfBoundY = Integer.MIN_VALUE;
+            float[] angles = new float[2];
+            if (collisionAxis[0] == LEFT) {
+                aX = "LEFT";
+                angles[0] = 0.0f;
+                // If the object is out of bounds in the -X direction, limit its X value
+                outOfBoundX = bounds[0] < 0.0f ? (bounds[2] - bounds[0]) / 2 : outOfBoundX;
+            } else if (collisionAxis[0] == RIGHT) {
+                aY = "RIGHT";
+                angles[0] = 180.0f;
+                // If the object is out of bounds in the +X direction, limit its X value
+                outOfBoundX = bounds[3] > parent.width ? parent.width - ((bounds[2] - bounds[0]) / 2) : outOfBoundX;
+            }
+
+            if (collisionAxis[1] == TOP) {
+                aY = "TOP";
+                angles[1] = 90.0f;
+                // If the object is out of bounds in the -Y direction, limit its Y value
+                outOfBoundY = bounds[1] < 0.0f ? (bounds[3] - bounds[1]) / 2 : outOfBoundY;
+            } else if (collisionAxis[1] == BOTTOM) {
+                aY = "BOTTOM";
+                angles[1] = 270.0f;
+                // If the object is out of bounds in the +Y direction, limit its Y value
+                outOfBoundY = bounds[3] > parent.height ? parent.height - ((bounds[3] - bounds[1]) / 2) : outOfBoundY;
+            }
+
+            // Call listener if collision is valid
+            boolean ignored = true;
+            if((collisionAxis[0] != NONE && !parity.contains(collisionAxis[0])) || (collisionAxis[1] != NONE && !parity.contains(collisionAxis[1])))
+            {
+                // Calculate collision angle from collided bounds
+                float a;
+                if(collisionAxis[0] != NONE && collisionAxis[1] != NONE)
+                    a = ((angles[0] + angles[1]) / 2) % 180;
+                else a = angles[0] + angles[1];
+
+                // Pass angle to collision handler
+                p.collision(null, a);
+                ignored = false;
+            }else{
+                // If a collision was detected, but ignored due to parity, ensure that the objects remain within the simulation area
+                // by bounding their X and Y axis values to the edges of the screen.
+                if(outOfBoundX != Integer.MIN_VALUE) p.coords.x = outOfBoundX + Math.signum(outOfBoundX);
+                if(outOfBoundY != Integer.MIN_VALUE) p.coords.y = outOfBoundY + Math.signum(outOfBoundY);
+            }
+
+            // Log collision
+            log.logEvent(LogEventLevel.DEBUG, String.format("Collision: %s (%1.3f, %1.3f) %s %s%s.", p.UID, bounds[0], bounds[1],
+                                                            ignored ? "ignored collision with static bound(s)" : "collided with static bound(s)",
+                                                            aX, aY));
+
+            // Clear flag list, it will be repopulated with still-valid flags
+            parity.clear();
+
+            // Re-add any still-active collisions to the index
+            if(collisionAxis[0] != NONE) parity.add(collisionAxis[0]);
+            if(collisionAxis[1] != NONE) parity.add(collisionAxis[1]);
         }
     }
 
@@ -416,20 +419,6 @@ public class PhysEngine implements AppletAccessor
 
         return velocities;
     }
-
-    @Deprecated
-    private float[] dCollisionCalcSimple(float v1, float v2, float ratio)
-    {
-        float[] velocities = new float[2];
-        velocities[0] = v2;
-        velocities[1] = v1;
-
-        velocities[0] *= (1.0f - dynamicCollisionPenalty);
-        velocities[1] *= (1.0f - dynamicCollisionPenalty);
-
-        return velocities;
-    }
-
 
     // Checks collision between two objects with the provided center coordinates and bounds.
     private boolean colliding(float c1, float c2, float w1, float w2)

@@ -35,6 +35,9 @@ public class StaticUtils
         return parent.recorder == null ? parent.g.strokeColor : parent.recorder.strokeColor;
     }
 
+    /**
+     * Gets the currently set text size in the provided {@link PApplet} object.
+     */
     public static int getTextSize(PApplet parent){
         return (int)(parent.recorder == null ? parent.g.textSize : parent.recorder.textSize);
     }

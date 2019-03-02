@@ -24,7 +24,7 @@ public abstract class PhysObject implements Renderable
      */
     public PhysObject()
     {
-        UID = "INV";
+        UID = "INV"; // Default UID for invalid objects, since subclasses should implement their own UIDs
         coords = new PVector();
         velocity = new PVector();
         mass = 1.0f;

@@ -19,8 +19,8 @@ public class Button extends UXElement
     protected String text;
     protected PImage BGImage;
     protected InteractEvent action;
-    protected int tColor;
-    protected int bColor;
+    protected int tColor; // Text color
+    protected int bColor; // Border color
 
     /**
      * Standard constructor.
@@ -67,6 +67,9 @@ public class Button extends UXElement
         this.BGImage = BGImage;
     }
 
+    /**
+     * Sets the text of this object's text field to a new value.
+     */
     public void setText(String newText){
         if(newText != null)
             this.text = newText;
@@ -83,6 +86,7 @@ public class Button extends UXElement
     @Override
     public RenderObject[] render()
     {
+        // Calculate centerpoint of the button construct from coords and size
         float cX = super.pos.x + (super.size.x / 2.0f);
         float cY = super.pos.y + (super.size.y / 2.0f);
 

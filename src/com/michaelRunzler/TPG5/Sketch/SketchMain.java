@@ -25,33 +25,59 @@ import java.util.*;
 
 public class SketchMain extends PApplet
 {
+    /**
+     * State flags for UI display mode.
+     */
     private enum UIState{
-        IDLE, MAIN_MENU, OPTIONS, IN_GAME, GAME_OVER
+        /**
+         * The UI is idle. No guarantees are made about what information is displayed.
+         */
+        IDLE,
+
+        /**
+         * The main menu is displayed. Background elements and game objects are rendered behind the menu.
+         */
+        MAIN_MENU,
+
+        /**
+         * The Options menu is displayed. Only the main background is rendered behind the menu.
+         */
+        OPTIONS,
+
+        /**
+         * Gameplay is in progress. Physics and user input are read, and game elements/background are rendered on top.
+         */
+        IN_GAME,
+
+        /**
+         * The player has died, and the game over screen is displayed. Background elements and game objects are rendered behind the menu.
+         */
+        GAME_OVER
     }
 
     // Color constants
-    public final int BG_COLOR = color(0, 0, 32);
-    public final int BG_LINE_COLOR = color(0, 255, 255);
-    public final int AI_COLOR = color(180, 20, 255);
-    public final int PLAYER_COLOR = color(255, 128, 0);
-    public final int GAME_OVER_FILTER = color(65, 64, 64, 224);
-    public final int BUTTON_BG_COLOR = color(0, 32, 128);
-    public final int BUTTON_BORDER_COLOR = color(0, 128, 128);
-    public final int UI_TEXT_COLOR = color(176, 0, 255);
-    public final int UI_BUTTON_TEXT_COLOR = color(255);
+    public final int BG_COLOR = color(0, 0, 32); // Used for background generation
+    public final int BG_LINE_COLOR = color(0, 255, 255); // Used for background generation
+    public final int AI_COLOR = color(180, 20, 255); // AI object main/trail color
+    public final int PLAYER_COLOR = color(255, 128, 0); // Player object main/trail color
+    public final int GAME_OVER_FILTER = color(65, 64, 64, 224); // Filter which is displayed over game elements while in a UI
+    public final int BUTTON_BG_COLOR = color(0, 32, 128); // Background color for all UX buttons
+    public final int BUTTON_BORDER_COLOR = color(0, 128, 128); // Border color for all UX buttons
+    public final int UI_BUTTON_TEXT_COLOR = color(255); // Text color for all UX buttons
+    public final int UI_TEXT_COLOR = color(176, 0, 255); // Text color for all non-button UX elements
 
     // Sizing and speed constants
-    public final float OBJECT_SIZE = 0.05f;
-    public final float AI_START_OFFSET = 100.0f;
-    public final float PLAYER_SLOWDOWN = 0.05f;
-    public final float PLAYER_ACCEL = 0.30f;
-    public final float AI_ACCELERATION = 0.25f;
-    public final float AI_SPEED_CAP = 25.0f;
-    public final int AI_BOOST_INTERVAL = 120;
-    public final int AI_BOOST_MAG = 9;
-    public final float BUTTON_WIDTH_FACTOR = 0.20f;
-    public final float BUTTON_HEIGHT_FACTOR = 0.05f;
-    public final float BUTTON_SPACING_FACTOR = 0.025f;
+    public final float OBJECT_SIZE = 0.05f; // Size of game objects as a decimal percentage of window height
+    public final float AI_START_OFFSET = 100.0f; // How far from the edges of the screen (and each other) AI objects will start
+    public final float PLAYER_SLOWDOWN = 0.05f; // How fast (PPF^2) the player object will decelerate while it is not under player control
+    public final float PLAYER_ACCEL = 0.30f; // How fast (PPF^2) the player object will accelerate under player control
+    public final float AI_ACCELERATION = 0.25f; // How fast (PPF^2) the AI objects will accelerate towards the player object
+    public final float AI_SPEED_CAP = 25.0f; // How fast (PPF^2) AI objects may go (total velocity) before they are speed-capped
+    public final int AI_BOOST_INTERVAL = 120; // How many frames (max) AI objects will wait between tracking boosts
+    public final int AI_BOOST_MAG = 9; // Maximum divisor for boost interval. Upshifted by 1.
+    public final float BUTTON_WIDTH_FACTOR = 0.20f; // How wide buttons are as a decimal percentage of screen width
+    public final float BUTTON_HEIGHT_FACTOR = 0.05f; // How tall buttons are as a percentage of screen height
+    public final float BUTTON_SPACING_FACTOR = 0.025f; // How large the space between buttons is as a percentage of screen height
 
     // Names and UIDs
     public final String PLAYER_NAME = "player_";
@@ -61,21 +87,21 @@ public class SketchMain extends PApplet
     private static PApplet instance;
 
     // State storage
-    private HashMap<Integer, Boolean> pressedKeys;
-    private HashMap<Integer, Boolean> pressedMouseButtons;
-    private HashMap<UIState, UXEngine> stateInputMap;
-    private HashMap<Switch, String> configOptions;
-    private RenderObject[][] highScoreTable;
+    private HashMap<Integer, Boolean> pressedKeys; // Currently depressed key codes
+    private HashMap<Integer, Boolean> pressedMouseButtons; // Currently held mouse buttons
+    private HashMap<UIState, UXEngine> stateInputMap; // Mapping between UI states and active UX engines, used for input handling
+    private HashMap<Switch, String> configOptions;  // Map of all active config switch UX elements and their config IDs
+    private RenderObject[][] highScoreTable; // Index of all render object pairs used to display the high-score table on the game over screen
     private PImage BG;
     private PImage logo;
-    private int framesSinceBoost;
-    private Random boostGenerator;
-    private String lastHSName;
+    private int framesSinceBoost; // How many frames have elapsed since an AI object last boosted
+    private Random boostGenerator; // RNG used for boost interval calculation
+    private String lastHSName; // Last name used for the high-score board, used to autofill the entry field
     private UIState state;
-    private RenderObject goText;
-    private boolean generatedGOText;
-    private boolean updatedOptionStates;
-    private RenderObject lastScore;
+    private RenderObject goText; // Game-over text field, regenerated on each game-over screen
+    private boolean generatedGOText; // Set to true if the game-over text field has been generated, used to stop constant regeneration
+    private boolean updatedOptionStates; // Same as above, but for options screen toggle states
+    private RenderObject lastScore; // Stores the score from the last gameplay session for use in the game-over screen
 
     // Engines and interfaces
     private XLoggerInterpreter log;
@@ -88,13 +114,14 @@ public class SketchMain extends PApplet
     private StatsHUD stats;
     private GamePhysObject player;
     private GamePhysObject[] AIs;
-    private ParticleSpray[] death;
+    private ParticleSpray[] death; // Index of player-death effects currently active on the screen
 
     //
     // SETUP
     //
     public void settings(){
         size(1024, 1024);
+        // Activate cross-class instancing field
         instance = this;
     }
 
@@ -118,25 +145,26 @@ public class SketchMain extends PApplet
         generatedGOText = false;
         updatedOptionStates = false;
         lastScore = null;
+
+        // Load logo image, default to it being invisible if it cannot be loaded
         try {
             logo = loadImage(Thread.currentThread().getContextClassLoader().getResource("com/michaelRunzler/TPG5/Sketch/data/ark.png").toURI().getPath().substring(1));
         } catch (URISyntaxException | NullPointerException e) {
             log.logEvent(LogEventLevel.WARNING, "Could not load logo image.");
-            logo = null;
+            logo = createImage(1, 1, ARGB);
         }
+
+        // Attempt to load config. If load fails, load defaults instead.
+        cfg = new ConfigEngine();
+        boolean exists  = cfg.load();
+        if(!exists) cfg.loadDefaults();
 
         // Initialize engines
         physics = new PhysEngine();
-        cfg = new ConfigEngine();
         score = new ScoreHUD(0, 0);
         gameOver = new UXEngine();
         mainMenu = new UXEngine();
         optionsMenu = new UXEngine();
-
-        // Attempt to load config. If load fails, load defaults instead.
-        boolean exists  = cfg.load();
-        if(!exists) cfg.loadDefaults();
-
         stats = new StatsHUD(width, 0, cfg);
 
         // Add AI objects
@@ -144,6 +172,7 @@ public class SketchMain extends PApplet
         AIs = new GamePhysObject[2];
         for(int i = 0; i < AIs.length; i++)
         {
+            // Distribute AI objects across the screen
             GamePhysObject gp = new GamePhysObject(200 * (i + 1), 100, AI_COLOR, height * OBJECT_SIZE);
             gp.UID = AI_NAME + i;
             AIs[i] = gp;
@@ -159,11 +188,12 @@ public class SketchMain extends PApplet
         {
             // If the player is colliding with an AI object:
             if(collided != null && collided.UID.contains(AI_NAME)){
-                // Add death particle effect handlers to the register and reset the scene/score counter
+                // Add death particle effect handlers to the register
                 death[0] = new ParticleSpray(player.coords.x, player.coords.y, 90.0f, 900.0f, PLAYER_COLOR, ParticleSpray.STANDARD_DIAMETER, 40, 5.0f, 60);
                 death[1] = new ParticleSpray(player.coords.x, player.coords.y, 90.0f, 270.0f, PLAYER_COLOR, ParticleSpray.STANDARD_DIAMETER, 40, 5.0f, 60);
+                // Reshuffle high-score table, update last-score text, reset score counters, count death, and show death screen
                 highScoreCalc();
-                lastScore.text = I18N.getString(Locale.ENGLISH, I18N.UI_GAME_OVER_LAST_SCORE) + " " + score.truncatedValue();
+                lastScore.text = I18N.getString(I18N.getCurrentLocale(), I18N.UI_GAME_OVER_LAST_SCORE) + " " + score.truncatedValue();
                 score.reset();
                 stats.countSessionDeath();
                 setScene();
@@ -178,10 +208,9 @@ public class SketchMain extends PApplet
         physics.staticCollisionPenalty = 0.50f;
         physics.dynamicCollisionTransfer = 0.75f;
 
-        // Delegate to UI setup method
         UISetup();
 
-        // Generate background grid
+        // Generate background grid and store to background image cache
         genBackground();
 
         // Set up scene and enter main menu
@@ -197,24 +226,30 @@ public class SketchMain extends PApplet
 
     public void draw()
     {
+        // Delegate to subhandler method depending on what the current state is
         switch(state)
         {
             case IDLE:
+                // Don't render anything new if the state is idle
                 break;
             case MAIN_MENU:
+                // Render background grid, game objects, and main menu filter/elements
                 image(BG, 0, 0);
                 renderSim();
                 mainMenu();
                 break;
             case OPTIONS:
+                // Render background grid and options menu filter/elements
                 image(BG, 0, 0);
                 optionsMenu();
                 break;
             case IN_GAME:
+                // Run physics, render background grid and game elements/effects
                 gameSim();
                 renderSim();
                 break;
             case GAME_OVER:
+                // Render background grid, game objects, and game over screen filter/elements
                 image(BG, 0, 0);
                 renderSim();
                 gameOver();
@@ -273,7 +308,7 @@ public class SketchMain extends PApplet
     // SUBROUTINES
     //
 
-    // Run physics for the game
+    // Run physics for the game, render score counter UI
     private void gameSim()
     {
         image(BG, 0, 0);
@@ -315,7 +350,7 @@ public class SketchMain extends PApplet
         physics.tick();
     }
 
-    // Run rendering for all game objects and UIs, only run physics for particles, not objects and AI
+    // Run rendering for stats UI, only run physics for particles, not objects and AI
     private void renderSim()
     {
         // Render AI and player objects
@@ -380,7 +415,7 @@ public class SketchMain extends PApplet
 
         // Generate new title text
         if(!generatedGOText) {
-            goText.text = I18N.getString(Locale.ENGLISH, I18N.UI_GAME_OVER_TITLE_MASTER + new Random().nextInt(I18N.genGOTitle.length));
+            goText.text = I18N.getString(I18N.getCurrentLocale(), I18N.UI_GAME_OVER_TITLE_MASTER + new Random().nextInt(I18N.genGOTitle.length));
 
             // Parse high scores
             try {
@@ -411,6 +446,7 @@ public class SketchMain extends PApplet
         }
     }
 
+    // Reset the gameplay area to default state, reset state counters, reset state to GAME_OVER
     @SuppressWarnings("IntegerDivisionInFloatingPointContext")
     private void setScene()
     {
@@ -443,6 +479,12 @@ public class SketchMain extends PApplet
         state = UIState.GAME_OVER;
     }
 
+    /**
+     * Causes the 'tracker' object to veer towards the 'tracked' object with the specified acceleration.
+     * @param tracker the object to steer towards the tracked object
+     * @param tracked the object to track
+     * @param trackForce the total vector acceleration (in PPF^2) to apply to the tracker object
+     */
     private void track(PhysObject tracker, PhysObject tracked, float trackForce)
     {
         // Skip comparing to itself
@@ -458,12 +500,14 @@ public class SketchMain extends PApplet
         tracker.velocity.y += fY;
     }
 
+    // Handle player directional input and player object frictional deceleration
     private void playerInput()
     {
         // Accept input and calculate 'friction' slowdown for horizontal axis
         if(keyHeld('A')) player.velocity.x += -PLAYER_ACCEL;
         else if(keyHeld('D')) player.velocity.x += PLAYER_ACCEL;
         else{
+            // Decelerate object in this axis, bounding at 0.
             if(Math.abs(player.velocity.x) < PLAYER_SLOWDOWN) player.velocity.x = 0.0f;
             else if(player.velocity.x < 0.0f) player.velocity.x -= -PLAYER_SLOWDOWN;
             else player.velocity.x -= PLAYER_SLOWDOWN;
@@ -473,6 +517,7 @@ public class SketchMain extends PApplet
         if(keyHeld('W')) player.velocity.y += -PLAYER_ACCEL;
         else if(keyHeld('S')) player.velocity.y += PLAYER_ACCEL;
         else{
+            // Decelerate object in this axis, bounding at 0.
             if(Math.abs(player.velocity.y) < PLAYER_SLOWDOWN) player.velocity.y = 0.0f;
             else if(player.velocity.y < 0.0f) player.velocity.y -= -PLAYER_SLOWDOWN;
             else player.velocity.y -= PLAYER_SLOWDOWN;
@@ -484,7 +529,7 @@ public class SketchMain extends PApplet
     {
         // Request name from user, autofill with last player name if there was one entered
         String name = null;
-        if(loadConfigValue(ConfigKeys.KEY_NAME_ENTRY)) name = JOptionPane.showInputDialog(I18N.getString(Locale.ENGLISH, I18N.DIALOG_NAME_ENTRY), lastHSName == null ? "Player" : lastHSName);
+        if(loadConfigValue(ConfigKeys.KEY_NAME_ENTRY)) name = JOptionPane.showInputDialog(I18N.getString(I18N.getCurrentLocale(), I18N.DIALOG_NAME_ENTRY), lastHSName == null ? "Player" : lastHSName);
         if(name != null) lastHSName = name;
 
         // Reset key hold and mouse hold entries to prevent accidental input; trick API into thinking that the keys have
@@ -513,6 +558,7 @@ public class SketchMain extends PApplet
                 names[names.length - i] = new ARKJsonElement(null, false, sorted.get(i).value);
             }
 
+            // Update stats display with new table
             stats.updateStatsFromCfg();
         } catch (NumberFormatException | NullPointerException e) {
             log.logEvent(LogEventLevel.WARNING, "Unable to write high-score value to registry.");
@@ -522,19 +568,21 @@ public class SketchMain extends PApplet
     // Set up UI elements and engines
     private void UISetup()
     {
-        // Add button elements to UX engines
+        // Precalculate commonly used values
         float buttonW = width * BUTTON_WIDTH_FACTOR;
         float buttonH = height * BUTTON_HEIGHT_FACTOR;
         float buttonS = height * BUTTON_SPACING_FACTOR;
         float startX = (height / 2.0f - buttonW / 2.0f);
-        
+
+        // Precompiled mutable array of values for automatic constructor methods.
+        // Ordered as {X, Y, W, H}.
         float[] specs = new float[]{startX, (buttonH + buttonS * 2), buttonW, buttonH};
 
         //
         // Main menu
         //
 
-        mainMenu.staticRenderable.add(new RenderObject(I18N.getString(Locale.ENGLISH, I18N.UI_MENU_TITLE), CENTER, 48, CENTER, CENTER,
+        mainMenu.staticRenderable.add(new RenderObject(I18N.getString(I18N.getCurrentLocale(), I18N.UI_MENU_TITLE), CENTER, 48, CENTER, CENTER,
                 UI_TEXT_COLOR, startX + (buttonW / 2), specs[1], -1, -1));
         specs[1] = width / 2.0f;
 
@@ -558,7 +606,7 @@ public class SketchMain extends PApplet
         //
 
         specs[1] = buttonH + buttonS;
-        optionsMenu.staticRenderable.add(new RenderObject(I18N.getString(Locale.ENGLISH, I18N.UI_OPTIONS_MENU_TITLE), CENTER,
+        optionsMenu.staticRenderable.add(new RenderObject(I18N.getString(I18N.getCurrentLocale(), I18N.UI_OPTIONS_MENU_TITLE), CENTER,
                 36, CENTER, CENTER, UI_TEXT_COLOR, startX + (buttonW / 2), specs[1], -1, -1));
 
         Switch tmp;
@@ -578,12 +626,17 @@ public class SketchMain extends PApplet
         specs[1] += buttonH + buttonS;
         specs[2] = buttonW;
         optionsMenu.managed.add(buildButton(specs, I18N.UI_OPTIONS_RESET, (x, y, type, ID) -> {
-            if(type == InteractionType.MOUSE_UP){
-                int res = JOptionPane.showConfirmDialog(null, I18N.getString(Locale.ENGLISH, I18N.DIALOG_RESET), I18N.getString(Locale.ENGLISH, I18N.DIALOG_RESET_TITLE), JOptionPane.YES_NO_OPTION);
+            if(type == InteractionType.MOUSE_UP)
+            {
+                // Warn the user that this action cannot be undone, and ask them to confirm.
+                int res = JOptionPane.showConfirmDialog(null, I18N.getString(I18N.getCurrentLocale(), I18N.DIALOG_RESET),
+                        I18N.getString(I18N.getCurrentLocale(), I18N.DIALOG_RESET_TITLE), JOptionPane.YES_NO_OPTION);
                 if(res == 0) {
+                    // If the user has confirmed reset, load defaults, show confirmation dialog, clear session stats, and go back to the main menu.
                     cfg.loadDefaults();
-                    JOptionPane.showMessageDialog(null, I18N.getString(Locale.ENGLISH, I18N.DIALOG_RESET_SUCCESS));
+                    stats.resetSessionDeaths();
                     stats.updateStatsFromCfg();
+                    JOptionPane.showMessageDialog(null, I18N.getString(I18N.getCurrentLocale(), I18N.DIALOG_RESET_SUCCESS));
                     state = UIState.MAIN_MENU;
                 }
             }
@@ -620,7 +673,7 @@ public class SketchMain extends PApplet
         specs[0] = buttonS;
         specs[1] = buttonH * 2.0f;
 
-        gameOver.staticRenderable.add(new RenderObject(I18N.getString(Locale.ENGLISH, I18N.UI_GAME_OVER_HIGH_SCORE),
+        gameOver.staticRenderable.add(new RenderObject(I18N.getString(I18N.getCurrentLocale(), I18N.UI_GAME_OVER_HIGH_SCORE),
                 CENTER, 36, LEFT, CENTER, UI_TEXT_COLOR, specs[0], specs[1], -1, -1));
         specs[1] += buttonH + buttonS;
 
@@ -631,30 +684,37 @@ public class SketchMain extends PApplet
             specs[1] += buttonS;
         }
 
+        // Bind engines to game states for input handling
         stateInputMap.put(UIState.MAIN_MENU, mainMenu);
         stateInputMap.put(UIState.OPTIONS, optionsMenu);
         stateInputMap.put(UIState.GAME_OVER, gameOver);
     }
 
+    // Generate grid background and save to cache image
     private void genBackground()
     {
+        // Clear current elements if there are any
         background(BG_COLOR);
 
-        float spacing = 80.0f;
-        int fade = 8;
+        float spacing = 80.0f; // Space between the center of each grid line in X and Y axes
+        int fade = 8; // Number of pixels on each side of the lines before the line fades away entirely
         int aInterval = (255 / fade);
 
+        // Start at the horizontal center of the canvas
         float p1 = width / 2.0f;
         float p2 = width / 2.0f;
         float alpha;
         int diff;
 
+        // Translate background color into mutable ARGB form
         int[] bgC = StaticUtils.toARGB(BG_LINE_COLOR);
 
+        // Iterate away from the center of the canvas, drawing each set of lines as we go
         while(p1 > 0.0f && p2 < width)
         {
             alpha = 255;
             diff = 0;
+            // Draw fade effect away from the lines' centers
             while(alpha > 0){
                 stroke(bgC[1], bgC[2], bgC[3], alpha);
                 line(p1 - diff, 0, p1 - diff, height);
@@ -668,6 +728,7 @@ public class SketchMain extends PApplet
             p2 += spacing;
         }
 
+        // Repeat process with the vertical axis
         p1 = height / 2.0f;
         p2 = height / 2.0f;
 
@@ -688,6 +749,7 @@ public class SketchMain extends PApplet
             p2 += spacing;
         }
 
+        // Save completed grid effect to cache image
         BG = get();
     }
 
@@ -713,24 +775,46 @@ public class SketchMain extends PApplet
         return pressedKeys.get(keyCode) != null && pressedKeys.get(keyCode);
     }
 
-    // State access for lambda classes
-    protected void setState(UIState state){
+    // State access for lambda/anonymous classes only
+    private void setState(UIState state){
         this.state = state;
     }
-    
-    // Builds a default button element from the specified arguments.
+
+    /**
+     * Builds a default UX button element from the specified arguments and preset default values.
+     * Default values are as follows:
+     * Color: {@link #BUTTON_BG_COLOR}/{@link #BUTTON_BORDER_COLOR}/{@link #UI_BUTTON_TEXT_COLOR}
+     * Text: {@link I18N#getString(Locale, String)} with arguments: {@link Locale#ENGLISH}, {@code SID}
+     * @param specs a list of coordinates and sizes for the button, in the order {@code [X, Y, W, H]}.
+     * @param SID the Localized String Descriptor for the button's text, to be retrieved through the {@link I18N} interface
+     * @param handler the {@link InteractEvent} handler for button actions.
+     * @return the completed button object
+     */
     private Button buildButton(float[] specs, String SID, InteractEvent handler){
         return new Button(specs[0], specs[1], specs[2], specs[3], BUTTON_BG_COLOR, UI_BUTTON_TEXT_COLOR, BUTTON_BORDER_COLOR,
-                I18N.getString(Locale.ENGLISH, SID), handler);
+                I18N.getString(I18N.getCurrentLocale(), SID), handler);
     }
 
-    // Builds a default config option switch from the specified arguments.
+    /**
+     * Builds a default UX switch element from the specified arguments and preset default values.
+     * Default values are as follows:
+     * Color: {@link #BUTTON_BG_COLOR}/{@link #BUTTON_BORDER_COLOR}/{@link #UI_BUTTON_TEXT_COLOR}
+     * Text: {@link I18N#getString(Locale, String)} with arguments: {@link Locale#ENGLISH}, {@code SID}
+     * InteractionHandler: A default handler which toggles the state of the switch and stores the new value to the config upon
+     *                     receiving a {@link InteractionType#MOUSE_DOWN} event.
+     * @param specs a list of coordinates and sizes for the button, in the order {@code [X, Y, W, H]}.
+     * @param SID the Localized String Descriptor for the button's text, to be retrieved through the {@link I18N} interface
+     * @param configID the config setting ID from {@link ConfigKeys} to use for value storage and retrieval
+     * @return the completed switch object
+     */
     private Switch buildConfigSwitch(float[] specs, String SID, String configID)
     {
         return new Switch(specs[0], specs[1], specs[2], specs[3], BUTTON_BG_COLOR, UI_BUTTON_TEXT_COLOR,
-                BUTTON_BORDER_COLOR, I18N.getString(Locale.ENGLISH, SID), (x, y, type, ID) -> {
+                BUTTON_BORDER_COLOR, I18N.getString(I18N.getCurrentLocale(), SID), (x, y, type, ID) -> {
             if(type == InteractionType.MOUSE_DOWN){
+                // Load config parent element
                 ARKJsonElement[] subs = cfg.index.getElementByName(ConfigKeys.KEY_SUB_CONFIG).getSubElements();
+                // Manually search for and retrieve subelement to allow for editing
                 int found = -1;
                 for(int i = 0; i < subs.length; i++){
                     if(subs[i].getName().equals(configID)){
@@ -739,6 +823,7 @@ public class SketchMain extends PApplet
                     }
                 }
 
+                // Write new value back to the config
                 try {
                     boolean value = Boolean.parseBoolean(subs[found].getDeQuotedValue());
                     subs[found] = new ARKJsonElement(subs[found].getName(), false, "" + !value);

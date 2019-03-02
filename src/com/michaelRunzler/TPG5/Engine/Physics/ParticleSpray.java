@@ -22,11 +22,11 @@ public class ParticleSpray implements Renderable
     public static final float STANDARD_DIAMETER = 4;
 
     private PVector coords;
-    private double spread;
-    private double center;
+    private double spread; // Arc on each side of the centerline in radians
+    private double center; // Centerpoint in radians
     private int color;
-    private float diameter;
-    private double speed;
+    private float diameter; // Outer particle diameter
+    private double speed; // Initial maximum velocity in PPF^2
     private int life; // Maximum frame life count
     private int lived; // How many frames this object has been 'alive'
     private Random rng;
@@ -64,8 +64,10 @@ public class ParticleSpray implements Renderable
         this.hasFired = false;
     }
 
-    // Generates velocities and particle system registers. Must be called before the first call to render().
-    // render() calls this automatically if it has not already been called.
+    /**
+     * Generates velocities and particle system registers. Must be called before the first call to {@link #render()}.
+     * {@link #render()} calls this automatically if it has not already been called.
+     */
     public void fireEffect()
     {
         // Generate velocity bounds for specified angular limits
