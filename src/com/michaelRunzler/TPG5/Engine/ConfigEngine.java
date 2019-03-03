@@ -63,17 +63,43 @@ public class ConfigEngine
 
         ARKJsonElement highScores = new ARKJsonElement(KEY_HIGH_SCORES, true, null, scores);
         ARKJsonElement highScoreNames = new ARKJsonElement(KEY_HIGH_SCORE_NAMES, true, null, scoreNames);
-        ARKJsonElement totalDeaths = new ARKJsonElement(KEY_DEATH_TOTAL, false, "0");
+        ARKJsonElement totalDeaths = new ARKJsonElement(KEY_DEATH_TOTAL, false, getDefaultForKey(KEY_DEATH_TOTAL));
 
-        ARKJsonElement difficulty = new ARKJsonElement(KEY_DIFFICULTY, false, "false");
-        ARKJsonElement nameEntry = new ARKJsonElement(KEY_NAME_ENTRY, false, "true");
+        ARKJsonElement difficulty = new ARKJsonElement(KEY_DIFFICULTY, false, getDefaultForKey(KEY_DIFFICULTY));
+        ARKJsonElement nightmare = new ARKJsonElement(KEY_NIGHTMARE, false, getDefaultForKey(KEY_NIGHTMARE));
+        ARKJsonElement nameEntry = new ARKJsonElement(KEY_NAME_ENTRY, false, getDefaultForKey(KEY_NAME_ENTRY));
 
         ARKJsonElement persist = new ARKJsonElement(KEY_SUB_PERSISTENCE, false, null, highScores, highScoreNames, totalDeaths);
-        ARKJsonElement config = new ARKJsonElement(KEY_SUB_CONFIG, false, null, difficulty, nameEntry);
+        ARKJsonElement config = new ARKJsonElement(KEY_SUB_CONFIG, false, null, difficulty, nightmare, nameEntry);
 
         // Add final head elements to structural tree
         index.getElementMap().add(persist);
         index.getElementMap().add(config);
+    }
+
+    /**
+     * Gets the default value for a specified key.
+     */
+    public String getDefaultForKey(String keyName)
+    {
+        switch (keyName)
+        {
+            case KEY_HIGH_SCORES:
+            case KEY_HIGH_SCORE_NAMES:
+            case KEY_SUB_PERSISTENCE:
+            case KEY_SUB_CONFIG:
+                return null;
+            case KEY_DEATH_TOTAL:
+                return "0";
+            case KEY_DIFFICULTY:
+                return "false";
+            case KEY_NAME_ENTRY:
+                return "true";
+            case KEY_NIGHTMARE:
+                return "false";
+            default:
+                return "";
+        }
     }
 
     /**

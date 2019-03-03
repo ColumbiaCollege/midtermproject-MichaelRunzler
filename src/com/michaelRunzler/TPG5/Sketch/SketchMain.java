@@ -139,6 +139,7 @@ public class SketchMain extends PApplet
         pressedMouseButtons = new HashMap<>();
         stateInputMap = new HashMap<>();
         configOptions = new HashMap<>();
+        AIs = new GamePhysObject[2];
         highScoreTable = new RenderObject[10][3];
         death = new ParticleSpray[2];
         framesSinceBoost = 0;
@@ -173,18 +174,6 @@ public class SketchMain extends PApplet
         optionsMenu = new UXEngine();
         stats = new StatsHUD(width, 0, cfg);
 
-        // Add AI objects
-        ArrayList<PhysObject> obj = physics.getSimObjectsMutable();
-        AIs = new GamePhysObject[2];
-        for(int i = 0; i < AIs.length; i++)
-        {
-            // Distribute AI objects across the screen
-            GamePhysObject gp = new GamePhysObject(200 * (i + 1), 100, AI_COLOR, height * OBJECT_SIZE);
-            gp.UID = AI_NAME + i;
-            AIs[i] = gp;
-            obj.add(gp);
-        }
-
         // Add player-controlled object
         player = new GamePhysObject(300, 100, PLAYER_COLOR, height * OBJECT_SIZE);
         player.UID = PLAYER_NAME + 0;
@@ -209,7 +198,7 @@ public class SketchMain extends PApplet
             }
         });
 
-        obj.add(player);
+        physics.getSimObjectsMutable().add(player);
 
         // Set constants for the physics engine
         physics.dynamicGravityConstant = 0.0f;
@@ -470,17 +459,38 @@ public class SketchMain extends PApplet
         }
     }
 
-    // Reset the gameplay area to default state, reset state counters, reset state to GAME_OVER
+    // Reset the gameplay area to default state, reset state counters, reset state to GAME_OVER, update object count
+    // with Nightmare flag
     @SuppressWarnings("IntegerDivisionInFloatingPointContext")
     private void setScene()
     {
         image(BG, 0, 0);
         physics.reset();
         framesSinceBoost = 0;
+
+        // Change object count if Nightmare mode has been turned on or off since the last game reset
+        boolean nm = loadConfigValue(ConfigKeys.KEY_NIGHTMARE);
+        if (nm && AIs.length != 4){
+            AIs = new GamePhysObject[4];
+            physics.getSimObjectsMutable().clear();
+            physics.getSimObjectsMutable().add(player);
+        } else if(!nm && AIs.length != 2) {
+            AIs = new GamePhysObject[2];
+            physics.getSimObjectsMutable().clear();
+            physics.getSimObjectsMutable().add(player);
+        }
+
         for(int i = 0; i < AIs.length; i++)
         {
             // Reset objects
+            if(AIs[i] == null){
+                // Populate objects if they have been cleared
+                AIs[i] = new GamePhysObject(200 * (i + 1), 100, AI_COLOR, height * OBJECT_SIZE);
+                AIs[i].UID = AI_NAME + i;
+                physics.getSimObjectsMutable().add(AIs[i]);
+            }
             GamePhysObject gp = AIs[i];
+
             gp.clearTrail();
             gp.velocity.x = 0;
             gp.velocity.y = 0;
@@ -644,11 +654,23 @@ public class SketchMain extends PApplet
         tmp = buildConfigSwitch(specs, I18N.UI_OPTIONS_NAME_ENTRY, ConfigKeys.KEY_NAME_ENTRY);
         optionsMenu.managed.add(tmp);
         configOptions.put(tmp, ConfigKeys.KEY_NAME_ENTRY);
-
         specs[1] += buttonH + buttonS;
+
         tmp = buildConfigSwitch(specs, I18N.UI_OPTIONS_DIFFICULTY, ConfigKeys.KEY_DIFFICULTY);
         optionsMenu.managed.add(tmp);
         configOptions.put(tmp, ConfigKeys.KEY_DIFFICULTY);
+        specs[1] += buttonH + buttonS;
+
+        tmp = buildConfigSwitch(specs, I18N.UI_OPTIONS_NIGHTMARE, ConfigKeys.KEY_NIGHTMARE);
+        optionsMenu.managed.add(tmp);
+        configOptions.put(tmp, ConfigKeys.KEY_NIGHTMARE);
+        specs[0] += (buttonW * 0.125f);
+        specs[1] += buttonH + buttonS;
+
+        RenderObject nmText = new RenderObject(I18N.getString(I18N.getCurrentLocale(), I18N.UI_OPTIONS_NIGHTMARE_INFO), CORNER,
+                18, LEFT, CENTER, UI_TEXT_COLOR, specs[0], specs[1], -1, -1);
+        optionsMenu.staticRenderable.add(buildDropShadow(nmText));
+        optionsMenu.staticRenderable.add(nmText);
 
         specs[0] = startX - (buttonW * 0.125f);
         specs[1] += buttonH + buttonS;
@@ -681,7 +703,7 @@ public class SketchMain extends PApplet
         // Game-over screen
         //
 
-        specs[1] = (buttonH + buttonS * 3.0f);
+        specs[1] = width / 2.0f - ((buttonH + buttonS) * 3.0f);
 
         goText[0] = new RenderObject("", CENTER, 36, CENTER, CENTER, UI_TEXT_COLOR, startX + (buttonW / 2.0f), specs[1], -1, -1);
         goText[1] = buildDropShadow(goText[0]);
@@ -693,13 +715,13 @@ public class SketchMain extends PApplet
         lastScore[1] = buildDropShadow(lastScore[0]);
         gameOver.staticRenderable.add(lastScore[1]);
         gameOver.staticRenderable.add(lastScore[0]);
-        specs[1] += (buttonH + buttonS);
+        specs[1] += (buttonH + buttonS) * 3.5f;
 
         RenderObject restartPrompt = new RenderObject(I18N.getString(I18N.getCurrentLocale(), I18N.UI_GAME_OVER_PROMPT),
                 CENTER, 18, LEFT, CENTER, UI_BUTTON_TEXT_COLOR, specs[0], specs[1], -1, -1);
         gameOver.staticRenderable.add(buildDropShadow(restartPrompt));
         gameOver.staticRenderable.add(restartPrompt);
-        specs[1] += (buttonH + buttonS) * 3.0f;
+        specs[1] += (buttonH + buttonS) * 0.5f;
 
         gameOver.managed.add(buildButton(specs, I18N.UI_GAME_OVER_RESTART, (x, y, type, ID) -> {
             if (type == InteractionType.MOUSE_UP || (type == InteractionType.KB_DOWN && (ID == ENTER || ID == ' ')))
@@ -711,21 +733,23 @@ public class SketchMain extends PApplet
             if(type.equals(InteractionType.MOUSE_UP)) setState(UIState.MAIN_MENU);
         }));
         specs[0] = buttonS;
-        specs[1] = buttonH * 2.0f;
+        specs[1] = height - (buttonS);
+
+
+        // Generate high-score table entries
+        for(int i = highScoreTable.length - 1; i >= 0; i--){
+            highScoreTable[i][2] = new RenderObject(UI_TEXT_COLOR, specs[0], specs[1], specs[0] + buttonW, specs[1]);
+            specs[1] -= buttonS;
+            highScoreTable[i][1] = new RenderObject("", CENTER, 24, LEFT, CENTER, UI_TEXT_COLOR, specs[0], specs[1], -1, -1);
+            highScoreTable[i][0] = buildDropShadow(highScoreTable[i][1]);
+            specs[1] -= buttonS;
+        }
+        specs[1] -= buttonH;
 
         RenderObject highScoreTitle = new RenderObject(I18N.getString(I18N.getCurrentLocale(), I18N.UI_GAME_OVER_HIGH_SCORE),
                 CENTER, 36, LEFT, CENTER, UI_TEXT_COLOR, specs[0], specs[1], -1, -1);
         gameOver.staticRenderable.add(buildDropShadow(highScoreTitle));
         gameOver.staticRenderable.add(highScoreTitle);
-        specs[1] += buttonH + buttonS;
-
-        for(int i = 0; i < highScoreTable.length; i++){
-            highScoreTable[i][1] = new RenderObject("", CENTER, 24, LEFT, CENTER, UI_TEXT_COLOR, specs[0], specs[1], -1, -1);
-            highScoreTable[i][0] = buildDropShadow(highScoreTable[i][1]);
-            specs[1] += buttonS;
-            highScoreTable[i][2] = new RenderObject(UI_TEXT_COLOR, specs[0], specs[1], specs[0] + buttonW, specs[1]);
-            specs[1] += buttonS;
-        }
 
         // Bind engines to game states for input handling
         stateInputMap.put(UIState.MAIN_MENU, mainMenu);
@@ -896,12 +920,50 @@ public class SketchMain extends PApplet
     }
 
     // Load a value from the config index
-    private boolean loadConfigValue(String key)
+    private boolean loadConfigValue(String key){
+        return loadConfigValue(key, false);
+    }
+
+    // Load a value from the config, attempting to generate it if it cannot be loaded. Recurses one time, then aborts.
+    private boolean loadConfigValue(String key, boolean recurred)
     {
+        // Attempt to load value.
         try{
             return Boolean.parseBoolean(cfg.index.getElementByName(ConfigKeys.KEY_SUB_CONFIG).getSubElementByName(key).getDeQuotedValue());
-        }catch (NumberFormatException | NullPointerException e){
-            log.logEvent("Could not load config value for entry " + key);
+        }catch (NullPointerException e)
+        {
+            // If load failed due to missing key, attempt to generate the missing entry for that key
+            if(!recurred) log.logEvent("Could not load config value for entry " + key + ", generating.");
+            else{
+                // If generation has already been attempted, and the value still cannot be loaded, abort and return false instead.
+                log.logEvent("Could not load config value for entry " + key + ", aborting.");
+                JOptionPane.showMessageDialog(null, I18N.getString(Locale.ENGLISH, I18N.DIALOG_CONFIG_ERROR));
+                return false;
+            }
+
+            // Attempt to add the missing element to the config
+            ARKJsonElement ne = new ARKJsonElement(key, false, cfg.getDefaultForKey(key));
+            ArrayList<ARKJsonElement> baseIndex = cfg.index.getElementMap();
+            // Locate the base element for the config key set
+            for(int i = 0; i < baseIndex.size(); i++) {
+                if(baseIndex.get(i).getName().equals(ConfigKeys.KEY_SUB_CONFIG))
+                {
+                    // Add the new element to the config parent element's sub array
+                    ARKJsonElement[] subValues = baseIndex.get(i).getSubElements();
+                    ARKJsonElement[] tmp = new ARKJsonElement[subValues.length + 1];
+                    System.arraycopy(subValues, 0, tmp, 0, subValues.length);
+                    tmp[tmp.length - 1] = ne;
+                    baseIndex.add(i, new ARKJsonElement(baseIndex.get(i).getName(), baseIndex.get(i).isArray(), baseIndex.get(i).getValue(), tmp));
+                    baseIndex.remove(i + 1);
+
+                    // Retry load once. If it fails again, return false.
+                    return loadConfigValue(key, true);
+                }
+            }
+
+            return false;
+        }catch (NumberFormatException e){
+            log.logEvent("Config entry corrupt or unreadable for entry " + key);
             return false;
         }
     }

@@ -23,6 +23,8 @@ public class I18N
     public static final String UI_OPTIONS_MENU_TITLE = "uOptionsTitle";
     public static final String UI_OPTIONS_NAME_ENTRY = "uTOptionNameEntry";
     public static final String UI_OPTIONS_DIFFICULTY = "uTOptionDifficulty";
+    public static final String UI_OPTIONS_NIGHTMARE = "uTOptionDNightmare";
+    public static final String UI_OPTIONS_NIGHTMARE_INFO = "uOptionNightmareInfo";
     public static final String UI_OPTIONS_RESET = "uTOptionFacReset";
 
     // Game-Over Screen
@@ -44,6 +46,7 @@ public class I18N
     public static final String DIALOG_RESET = "dFacResetConfirm";
     public static final String DIALOG_RESET_TITLE = "dTFacResetConfirm";
     public static final String DIALOG_RESET_SUCCESS = "dFacResetSuccess";
+    public static final String DIALOG_CONFIG_ERROR = "dConfigLoadError";
 
     // Generated lists
     public static final String UI_TAUNT_MASTER = "uDeathTauntSuffix_";
@@ -66,7 +69,9 @@ public class I18N
         addEntry(Locale.ENGLISH, UI_OPTIONS_MENU_TITLE, "Game Settings");
         addEntry(Locale.ENGLISH, UI_OPTIONS_NAME_ENTRY, "Score Name Entry");
         addEntry(Locale.ENGLISH, UI_OPTIONS_DIFFICULTY, "High Difficulty");
+        addEntry(Locale.ENGLISH, UI_OPTIONS_NIGHTMARE, "Nightmare Mode");
         addEntry(Locale.ENGLISH, UI_OPTIONS_RESET, "Clear High Scores");
+        addEntry(Locale.ENGLISH, UI_OPTIONS_NIGHTMARE_INFO, "Takes effect upon next death!");
 
         // Game-over menu
         addEntry(Locale.ENGLISH, UI_GAME_OVER_RETURN, "Return to Main");
@@ -88,6 +93,7 @@ public class I18N
         addEntry(Locale.ENGLISH, DIALOG_RESET, "This will erase all high scores and set all options back to defaults! Are you sure?");
         addEntry(Locale.ENGLISH, DIALOG_RESET_TITLE, "WARNING");
         addEntry(Locale.ENGLISH, DIALOG_RESET_SUCCESS, "Config reset complete.");
+        addEntry(Locale.ENGLISH, DIALOG_CONFIG_ERROR, "Unable to load one or more config entries. Try resetting your config.");
 
         // Generated lists
         for (int i = 0; i < genTaunt.length; i++)
