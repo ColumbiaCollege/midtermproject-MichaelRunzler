@@ -1,5 +1,6 @@
 package com.michaelRunzler.TPG5.Engine;
 
+import com.michaelRunzler.TPG5.Sketch.SketchMain;
 import core.CoreUtil.ARKJsonParser.ARKJsonElement;
 import core.CoreUtil.ARKJsonParser.ARKJsonObject;
 import core.CoreUtil.ARKJsonParser.ARKJsonParser;
@@ -97,6 +98,8 @@ public class ConfigEngine
                 return "true";
             case KEY_NIGHTMARE:
                 return "false";
+            case KEY_RESOLUTION:
+                return SketchMain.Resolution.SYGA.name();
             default:
                 return "";
         }

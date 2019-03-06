@@ -15,7 +15,7 @@ import static com.michaelRunzler.TPG5.Util.StaticUtils.toARGB;
 /**
  * Represents a system of non-interacting particles emitted from a central point in a specified arc.
  * These particles have a set lifetime, during which they gradually fade and lose velocity, before
- * finally becoming invisible and 'dead'. This object uses the standard AXR (ARK eXtended Render) render pipeline.
+ * finally becoming invisible and 'dead'.
  */
 public class ParticleSpray implements Renderable
 {

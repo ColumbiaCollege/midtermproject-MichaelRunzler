@@ -24,6 +24,7 @@ public class I18N
     public static final String UI_OPTIONS_NAME_ENTRY = "uTOptionNameEntry";
     public static final String UI_OPTIONS_DIFFICULTY = "uTOptionDifficulty";
     public static final String UI_OPTIONS_NIGHTMARE = "uTOptionDNightmare";
+    public static final String UI_OPTIONS_RESOLUTION = "uDOptionRes";
     public static final String UI_OPTIONS_NIGHTMARE_INFO = "uOptionNightmareInfo";
     public static final String UI_OPTIONS_RESET = "uTOptionFacReset";
 
@@ -47,6 +48,10 @@ public class I18N
     public static final String DIALOG_RESET_TITLE = "dTFacResetConfirm";
     public static final String DIALOG_RESET_SUCCESS = "dFacResetSuccess";
     public static final String DIALOG_CONFIG_ERROR = "dConfigLoadError";
+    public static final String DIALOG_RESTART = "dConfirmRestart";
+    public static final String DIALOG_RESTART_TITLE = "dTConfirmRestart";
+    public static final String DIALOG_RESOLUTION = "dResChange";
+    public static final String DIALOG_RESOLUTION_TITLE = "dTResChange";
 
     // Generated lists
     public static final String UI_TAUNT_MASTER = "uDeathTauntSuffix_";
@@ -70,6 +75,7 @@ public class I18N
         addEntry(Locale.ENGLISH, UI_OPTIONS_NAME_ENTRY, "Score Name Entry");
         addEntry(Locale.ENGLISH, UI_OPTIONS_DIFFICULTY, "High Difficulty");
         addEntry(Locale.ENGLISH, UI_OPTIONS_NIGHTMARE, "Nightmare Mode");
+        addEntry(Locale.ENGLISH, UI_OPTIONS_RESOLUTION, "Resolution...");
         addEntry(Locale.ENGLISH, UI_OPTIONS_RESET, "Clear High Scores");
         addEntry(Locale.ENGLISH, UI_OPTIONS_NIGHTMARE_INFO, "Takes effect upon next death!");
 
@@ -78,7 +84,7 @@ public class I18N
         addEntry(Locale.ENGLISH, UI_GAME_OVER_RESTART, "Restart!");
         addEntry(Locale.ENGLISH, UI_GAME_OVER_HIGH_SCORE, "High Scores:");
         addEntry(Locale.ENGLISH, UI_GAME_OVER_LAST_SCORE, "Score:");
-        addEntry(Locale.ENGLISH, UI_GAME_OVER_PROMPT, "Press Space to restart!");
+        addEntry(Locale.ENGLISH, UI_GAME_OVER_PROMPT, "Press Space or R to restart!");
 
         // IG HUD
         addEntry(Locale.ENGLISH, UI_SCORE_PREFIX, "Score:");
@@ -94,6 +100,11 @@ public class I18N
         addEntry(Locale.ENGLISH, DIALOG_RESET_TITLE, "WARNING");
         addEntry(Locale.ENGLISH, DIALOG_RESET_SUCCESS, "Config reset complete.");
         addEntry(Locale.ENGLISH, DIALOG_CONFIG_ERROR, "Unable to load one or more config entries. Try resetting your config.");
+        addEntry(Locale.ENGLISH, DIALOG_RESTART, "Changes will not take effect until the game is restarted. Restart now?");
+        addEntry(Locale.ENGLISH, DIALOG_RESTART_TITLE, "Restart?");
+        addEntry(Locale.ENGLISH, DIALOG_RESOLUTION, "Select your preferred display resolution.\nPlease note, setting the resolution higher than" +
+                "\nyour screen resolution may render the game unusable.");
+        addEntry(Locale.ENGLISH, DIALOG_RESOLUTION_TITLE, "Resolution Settings");
 
         // Generated lists
         for (int i = 0; i < genTaunt.length; i++)

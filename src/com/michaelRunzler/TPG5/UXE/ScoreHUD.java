@@ -5,7 +5,6 @@ import com.michaelRunzler.TPG5.Sketch.SketchMain;
 import com.michaelRunzler.TPG5.Util.I18N;
 import com.michaelRunzler.TPG5.Util.InteractionType;
 import com.michaelRunzler.TPG5.Util.RenderObject;
-import core.CoreUtil.AUNIL.XLoggerInterpreter;
 import processing.core.PApplet;
 
 /**
@@ -25,7 +24,8 @@ public class ScoreHUD extends UXElement
     public ScoreHUD(float x, float y)
     {
         super();
-        log = new XLoggerInterpreter("Scoring System");
+        // No logging is done here, log initialization not needed for now
+        //log = new XLoggerInterpreter("Scoring System");
         super.pos.x = x;
         super.pos.y = y;
         frames = 0;

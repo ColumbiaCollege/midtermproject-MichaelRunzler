@@ -12,7 +12,6 @@ import core.CoreUtil.AUNIL.LogEventLevel;
 import core.CoreUtil.AUNIL.XLoggerInterpreter;
 import processing.core.PApplet;
 
-import java.util.Locale;
 import java.util.Random;
 
 /**
@@ -41,6 +40,7 @@ public class StatsHUD extends UXElement
     {
         super();
         log = new XLoggerInterpreter("Statistics System");
+        log.setImplicitEventLevel(LogEventLevel.DEBUG);
         super.pos.x = x;
         super.pos.y = y;
         sessionDeaths = 0;
@@ -89,6 +89,7 @@ public class StatsHUD extends UXElement
      */
     public void updateStatsFromCfg()
     {
+        log.logEvent("Config load requested.");
         // Attempt to grab stats from JSON index, fall back to default values (0) if an error occurs
         if(config != null)
         {
@@ -96,18 +97,24 @@ public class StatsHUD extends UXElement
                 // Grab death counter if it has not already been loaded
                 totalDeaths = Integer.parseInt(config.index.getElementByName(ConfigKeys.KEY_SUB_PERSISTENCE).getSubElementByName(ConfigKeys.KEY_DEATH_TOTAL).getDeQuotedValue());
                 totalDeaths += sessionDeaths;
+                log.logEvent("Loaded death counter, total: " + totalDeaths);
 
                 // Grab high score table and parse to find highest score
                 this.highScore = 0;
                 ARKJsonElement[] values = config.index.getElementByName(ConfigKeys.KEY_SUB_PERSISTENCE).getSubElementByName(ConfigKeys.KEY_HIGH_SCORES).getSubElements();
+                log.logEvent("Got high-score table from config, parsing...");
                 for(ARKJsonElement j : values){
                     long v = Long.parseLong(j.getDeQuotedValue());
                     if(v > highScore) highScore = v;
                 }
+
+                log.logEvent("Highest score: " + highScore);
             } catch (NumberFormatException | NullPointerException e) {
                 // Report to the log if an error occurs
                 log.logEvent(LogEventLevel.WARNING, "Could not load persistence data from config.");
             }
+        }else{
+            log.logEvent(LogEventLevel.WARNING, "No configuration engine available, aborting.");
         }
     }
 

@@ -196,8 +196,14 @@ public class PhysEngine implements AppletAccessor
             }else{
                 // If a collision was detected, but ignored due to parity, ensure that the objects remain within the simulation area
                 // by bounding their X and Y axis values to the edges of the screen.
-                if(outOfBoundX != Integer.MIN_VALUE) p.coords.x = outOfBoundX + Math.signum(outOfBoundX);
-                if(outOfBoundY != Integer.MIN_VALUE) p.coords.y = outOfBoundY + Math.signum(outOfBoundY);
+                if(outOfBoundX != Integer.MIN_VALUE) {
+                    p.coords.x = outOfBoundX + Math.signum(outOfBoundX);
+                    log.logEvent(LogEventLevel.DEBUG, String.format("Object %s out of static bound X by %.0f, correcting.", p.UID, outOfBoundX));
+                }
+                if(outOfBoundY != Integer.MIN_VALUE) {
+                    p.coords.y = outOfBoundY + Math.signum(outOfBoundY);
+                    log.logEvent(LogEventLevel.DEBUG, String.format("Object %s out of static bound Y by %.0f, correcting.", p.UID, outOfBoundX));
+                }
             }
 
             // Log collision

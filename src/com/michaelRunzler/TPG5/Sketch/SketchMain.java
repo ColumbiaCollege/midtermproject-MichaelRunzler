@@ -13,6 +13,7 @@ import com.michaelRunzler.TPG5.UXE.Switch;
 import com.michaelRunzler.TPG5.Util.*;
 import core.CoreUtil.ARKJsonParser.ARKJsonElement;
 import core.CoreUtil.AUNIL.LogEventLevel;
+import core.CoreUtil.AUNIL.LogVerbosityLevel;
 import core.CoreUtil.AUNIL.XLoggerInterpreter;
 import processing.core.PApplet;
 import processing.core.PImage;
@@ -23,8 +24,11 @@ import javax.swing.*;
 import java.net.URISyntaxException;
 import java.util.*;
 
+@SuppressWarnings("WeakerAccess")
 public class SketchMain extends PApplet
 {
+    private static XLoggerInterpreter staticLog;
+
     /**
      * State flags for UI display mode.
      */
@@ -53,6 +57,30 @@ public class SketchMain extends PApplet
          * The player has died, and the game over screen is displayed. Background elements and game objects are rendered behind the menu.
          */
         GAME_OVER
+    }
+
+    /**
+     * Resolutions for screen size.
+     */
+    public enum Resolution
+    {
+        SVGA(800, 600),
+        XGA(1024, 768),
+        SYGA(1024, 1024),
+        WXGA(1280, 800),
+        SXGA(1280, 1024),
+        HD(1366, 768),
+        FHD(1920, 1080),
+        QHD(2560, 1440),
+        UHD(3840, 2160),
+        QUHD(7680, 4320);
+
+        int xRes;
+        int yRes;
+        Resolution(int x, int y){
+            this.xRes = x;
+            this.yRes = y;
+        }
     }
 
     // Color constants
@@ -132,7 +160,12 @@ public class SketchMain extends PApplet
     {
         // Initialize logging system
         log = new XLoggerInterpreter("Main Applet");
-        log.logEvent("Initialization started at T+" + System.currentTimeMillis() + "z.");
+        log.setImplicitEventLevel(LogEventLevel.DEBUG);
+        log.changeLoggerVerbosity(LogVerbosityLevel.STANDARD);
+        log.logEvent(LogEventLevel.INFO, "Initialization started at T+" + System.currentTimeMillis() + "z.");
+
+        staticLog = new XLoggerInterpreter("Sketch Host");
+        staticLog.setImplicitEventLevel(LogEventLevel.DEBUG);
 
         // Initialize instance variables
         pressedKeys = new HashMap<>();
@@ -152,9 +185,11 @@ public class SketchMain extends PApplet
         lastScore = new RenderObject[2];
         pendingScoreEntry = -1L;
         scoreNameEntryDelay = false;
+        BG = createImage(0, 0, ARGB);
 
         // Load logo image, default to it being invisible if it cannot be loaded
         try {
+            //noinspection ConstantConditions
             logo = loadImage(Thread.currentThread().getContextClassLoader().getResource("com/michaelRunzler/TPG5/Sketch/data/ark.png").toURI().getPath().substring(1));
         } catch (URISyntaxException | NullPointerException e) {
             log.logEvent(LogEventLevel.WARNING, "Could not load logo image.");
@@ -165,6 +200,10 @@ public class SketchMain extends PApplet
         cfg = new ConfigEngine();
         boolean exists  = cfg.load();
         if(!exists) cfg.loadDefaults();
+
+        // Enable screen resizing, resize according to config setting
+        surface.setResizable(true);
+        changeRes(loadResFromCfg(), true);
 
         // Initialize engines
         physics = new PhysEngine();
@@ -208,14 +247,11 @@ public class SketchMain extends PApplet
 
         UISetup();
 
-        // Generate background grid and store to background image cache
-        genBackground();
+        log.logEvent(LogEventLevel.INFO, "Init complete, took " + (log.getTimeSinceLastEvent() / 1000.0) + "s.");
 
         // Set up scene and enter main menu
         setScene();
         state = UIState.MAIN_MENU;
-
-        log.logEvent(LogEventLevel.DEBUG, "Init complete, took " + (log.getTimeSinceLastEvent() / 1000.0) + "s.");
     }
 
     //
@@ -258,6 +294,10 @@ public class SketchMain extends PApplet
         // Flag generated game-over text field as invalid and regenerate on next render pass
         if(state != UIState.GAME_OVER) generatedGOText = false;
         if(state != UIState.OPTIONS) updatedOptionStates = false;
+
+        // Generate background grid and store to background image cache. Delayed due to possible
+        // resolution changes initiated in setup()
+        if(BG.height == 0 || BG.width == 0) genBackground();
     }
 
     public void mousePressed(){
@@ -428,7 +468,7 @@ public class SketchMain extends PApplet
                     for (int i = 0; i < scores.length; i++)
                         compiled[i] = String.format("%-7s : %s", ScoreHUD.truncatedValue(Long.parseLong(scores[i].getDeQuotedValue())), scoreNames[i].getDeQuotedValue());
                 } catch (NumberFormatException | NullPointerException e) {
-                    log.logEvent("Unable to parse high score table.");
+                    log.logEvent(LogEventLevel.ERROR, "Unable to parse high score table.");
                     return;
                 }
             }
@@ -606,7 +646,7 @@ public class SketchMain extends PApplet
         float buttonW = width * BUTTON_WIDTH_FACTOR;
         float buttonH = height * BUTTON_HEIGHT_FACTOR;
         float buttonS = height * BUTTON_SPACING_FACTOR;
-        float startX = (height / 2.0f - buttonW / 2.0f);
+        float startX = (width / 2.0f - buttonW / 2.0f);
 
         // Precompiled mutable array of values for automatic constructor methods.
         // Ordered as {X, Y, W, H}.
@@ -620,7 +660,7 @@ public class SketchMain extends PApplet
                 UI_TEXT_COLOR, startX + (buttonW / 2), specs[1], -1, -1);
         mainMenu.staticRenderable.add(buildDropShadow(mainMenuText));
         mainMenu.staticRenderable.add(mainMenuText);
-        specs[1] = width / 2.0f;
+        specs[1] = height / 2.0f;
 
         mainMenu.managed.add(buildButton(specs, I18N.UI_MENU_ENTRY_START, (x, y, type, ID) -> {
             if(type == InteractionType.MOUSE_UP || (type == InteractionType.KB_DOWN && (ID == ENTER || ID == ' ')))
@@ -668,9 +708,37 @@ public class SketchMain extends PApplet
         specs[1] += buttonH + buttonS;
 
         RenderObject nmText = new RenderObject(I18N.getString(I18N.getCurrentLocale(), I18N.UI_OPTIONS_NIGHTMARE_INFO), CORNER,
-                18, LEFT, CENTER, UI_TEXT_COLOR, specs[0], specs[1], -1, -1);
+                18, CENTER, CENTER, UI_TEXT_COLOR, width / 2.0f, specs[1], -1, -1);
         optionsMenu.staticRenderable.add(buildDropShadow(nmText));
         optionsMenu.staticRenderable.add(nmText);
+        specs[0] = startX;
+        specs[1] += buttonH + buttonS;
+        specs[2] = buttonW;
+
+        optionsMenu.managed.add(buildButton(specs, I18N.UI_OPTIONS_RESOLUTION, (x, y, type, ID) -> {
+           if(type == InteractionType.MOUSE_UP)
+           {
+               // Ask user for new resolution, setting selected resolution to current one and updating result if
+               // it has changed once the dialog closes.
+               Resolution current = loadResFromCfg();
+               String[] opt = new String[Resolution.values().length];
+               Resolution[] values = Resolution.values();
+               for (int i = 0; i < values.length; i++) {
+                   Resolution r = values[i];
+                   opt[i] = r.name() + " (" + r.xRes + "x" + r.yRes + ")";
+               }
+
+               Object res = JOptionPane.showInputDialog(null, I18N.getString(I18N.getCurrentLocale(), I18N.DIALOG_RESOLUTION),
+                       I18N.getString(I18N.getCurrentLocale(), I18N.DIALOG_RESOLUTION_TITLE), JOptionPane.QUESTION_MESSAGE,
+                       null, opt, opt[current.ordinal()]);
+
+               Resolution chosen = null;
+               for(int i = 0; i < opt.length; i++) if (opt[i].equals(res)) chosen = values[i];
+
+               if((chosen != null && chosen.ordinal() != current.ordinal()))
+                   changeRes(chosen, false);
+           }
+        }));
 
         specs[0] = startX - (buttonW * 0.125f);
         specs[1] += buttonH + buttonS;
@@ -703,7 +771,7 @@ public class SketchMain extends PApplet
         // Game-over screen
         //
 
-        specs[1] = width / 2.0f - ((buttonH + buttonS) * 3.0f);
+        specs[1] = height / 2.0f - ((buttonH + buttonS) * 3.0f);
 
         goText[0] = new RenderObject("", CENTER, 36, CENTER, CENTER, UI_TEXT_COLOR, startX + (buttonW / 2.0f), specs[1], -1, -1);
         goText[1] = buildDropShadow(goText[0]);
@@ -718,13 +786,13 @@ public class SketchMain extends PApplet
         specs[1] += (buttonH + buttonS) * 3.5f;
 
         RenderObject restartPrompt = new RenderObject(I18N.getString(I18N.getCurrentLocale(), I18N.UI_GAME_OVER_PROMPT),
-                CENTER, 18, LEFT, CENTER, UI_BUTTON_TEXT_COLOR, specs[0], specs[1], -1, -1);
+                CENTER, 18, CENTER, CENTER, UI_BUTTON_TEXT_COLOR, width / 2.0f, specs[1], -1, -1);
         gameOver.staticRenderable.add(buildDropShadow(restartPrompt));
         gameOver.staticRenderable.add(restartPrompt);
         specs[1] += (buttonH + buttonS) * 0.5f;
 
         gameOver.managed.add(buildButton(specs, I18N.UI_GAME_OVER_RESTART, (x, y, type, ID) -> {
-            if (type == InteractionType.MOUSE_UP || (type == InteractionType.KB_DOWN && (ID == ENTER || ID == ' ')))
+            if (type == InteractionType.MOUSE_UP || (type == InteractionType.KB_DOWN && (ID == 'R' || ID == ' ')))
                 setState(UIState.IN_GAME);
         }));
         specs[1] += buttonH + buttonS;
@@ -817,7 +885,50 @@ public class SketchMain extends PApplet
         }
 
         // Save completed grid effect to cache image
-        BG = get();
+        BG = get(0, 0, width, height);
+    }
+
+    // Change stored screen resolution to the specified ID
+    private void changeRes(Resolution ID, boolean duringInit)
+    {
+        log.logEvent(String.format("Resolution change requested: %s (%d, %d); applying %s.", ID.name(), ID.xRes, ID.yRes,
+                duringInit ? "immediately" : "at next restart"));
+
+        // Find resolution storage key and update it, change resolution if we're in the init phase;
+        // warn user that change will not take effect until next restart if we're outside of init.
+        ARKJsonElement[] sub = cfg.index.getElementByName(ConfigKeys.KEY_SUB_CONFIG).getSubElements();
+        int found = -1;
+        for (int i = 0; i < sub.length; i++) {
+            ARKJsonElement s = sub[i];
+            if (s.getName().equals(ConfigKeys.KEY_RESOLUTION)) {
+                found = i;
+                break;
+            }
+        }
+
+        // Update value
+        sub[found] = new ARKJsonElement(sub[found].getName(), sub[found].isArray(), ID.name());
+
+        if(duringInit){
+            surface.setSize(ID.xRes, ID.yRes);
+        }else{
+            int restart = JOptionPane.showConfirmDialog(null, I18N.getString(I18N.getCurrentLocale(),
+                    I18N.DIALOG_RESTART), I18N.getString(I18N.getCurrentLocale(), I18N.DIALOG_RESTART_TITLE), JOptionPane.YES_NO_OPTION);
+            if(restart == 0) exit();
+        }
+    }
+
+    // Get the current resolution from the config
+    private Resolution loadResFromCfg()
+    {
+        String val = loadSConfigValue(ConfigKeys.KEY_RESOLUTION);
+        if(val == null) val = cfg.getDefaultForKey(ConfigKeys.KEY_RESOLUTION);
+        try {
+            return Resolution.valueOf(val);
+        } catch (IllegalArgumentException e) {
+            log.logEvent(LogEventLevel.WARNING, "Unable to parse resolution configuration setting, loading default.");
+            return Resolution.valueOf(cfg.getDefaultForKey(ConfigKeys.KEY_RESOLUTION));
+        }
     }
 
     //
@@ -844,7 +955,7 @@ public class SketchMain extends PApplet
 
     // State access for lambda/anonymous classes only
     private void setState(UIState state){
-        this.state = state;
+        this.state = state;log.logEvent("Subclass/thread set state to " + state.name());
     }
 
     /**
@@ -921,24 +1032,34 @@ public class SketchMain extends PApplet
 
     // Load a value from the config index
     private boolean loadConfigValue(String key){
+        try {
+            return Boolean.parseBoolean(loadConfigValue(key, false));
+        }catch (NumberFormatException e){
+            log.logEvent(LogEventLevel.ERROR, "Config entry corrupt or unreadable for entry " + key);
+            return false;
+        }
+    }
+
+    // Load a string value from the config index
+    private String loadSConfigValue(String key){
         return loadConfigValue(key, false);
     }
 
     // Load a value from the config, attempting to generate it if it cannot be loaded. Recurses one time, then aborts.
-    private boolean loadConfigValue(String key, boolean recurred)
+    private String loadConfigValue(String key, boolean recurred)
     {
         // Attempt to load value.
         try{
-            return Boolean.parseBoolean(cfg.index.getElementByName(ConfigKeys.KEY_SUB_CONFIG).getSubElementByName(key).getDeQuotedValue());
+            return cfg.index.getElementByName(ConfigKeys.KEY_SUB_CONFIG).getSubElementByName(key).getDeQuotedValue();
         }catch (NullPointerException e)
         {
             // If load failed due to missing key, attempt to generate the missing entry for that key
-            if(!recurred) log.logEvent("Could not load config value for entry " + key + ", generating.");
+            if(!recurred) log.logEvent(LogEventLevel.WARNING, "Could not load config value for entry " + key + ", generating.");
             else{
                 // If generation has already been attempted, and the value still cannot be loaded, abort and return false instead.
-                log.logEvent("Could not load config value for entry " + key + ", aborting.");
+                log.logEvent(LogEventLevel.ERROR, "Could not load config value for entry " + key + ", aborting.");
                 JOptionPane.showMessageDialog(null, I18N.getString(Locale.ENGLISH, I18N.DIALOG_CONFIG_ERROR));
-                return false;
+                return "";
             }
 
             // Attempt to add the missing element to the config
@@ -961,10 +1082,7 @@ public class SketchMain extends PApplet
                 }
             }
 
-            return false;
-        }catch (NumberFormatException e){
-            log.logEvent("Config entry corrupt or unreadable for entry " + key);
-            return false;
+            return "";
         }
     }
 
@@ -981,14 +1099,23 @@ public class SketchMain extends PApplet
      */
     public static PApplet getAccess()
     {
+        String name = "null";
         try {
+            // Obtain class base name, log access attempt
             Class<?> cls = Class.forName(getCallerClassFQN());
+            name = getCallerClassFQN();
+            if(name.contains(".")) name = name.substring(name.lastIndexOf('.') + 1);
+
+            staticLog.logEvent(String.format("Instance of class %s requested applet access, processing...", name));
             if(cls != null)
                 for(Class c : cls.getInterfaces())
-                    if(c.equals(AppletAccessor.class))
+                    if(c.equals(AppletAccessor.class)) {
+                        staticLog.logEvent(String.format("Access granted to %s.", name));
                         return instance;
+                    }
         } catch (ClassNotFoundException ignored) {}
 
+        staticLog.logEvent(LogEventLevel.WARNING, String.format("Class %s was denied applet access.", name));
         return null;
     }
 

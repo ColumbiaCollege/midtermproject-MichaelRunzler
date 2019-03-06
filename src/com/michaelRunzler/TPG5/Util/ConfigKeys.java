@@ -19,4 +19,5 @@ public class ConfigKeys
     public static final String KEY_DIFFICULTY = "DifficultyToggle";
     public static final String KEY_NIGHTMARE = "UltraHardmodeToggle";
     public static final String KEY_NAME_ENTRY = "HighScoreNameEntry";
+    public static final String KEY_RESOLUTION = "RenderResolution";
 }
